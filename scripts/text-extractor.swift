@@ -130,7 +130,7 @@ func isTimestamp(_ text: String) -> Bool {
 
 /// Recursively extracts text from the accessibility tree with semantic role tagging
 func getText(element: AXUIElement, depth: Int) -> String {
-    if depth > 50 { return "" }
+    if depth > 120 { return "" }
     
     var output = ""
     
@@ -188,6 +188,61 @@ func getText(element: AXUIElement, depth: Int) -> String {
     return output
 }
 
+/// Find the first scroll area in the accessibility tree
+func findScrollArea(element: AXUIElement, depth: Int) -> AXUIElement? {
+    if depth > 30 { return nil }
+    var role: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+    if let strRole = role as? String, strRole == "AXScrollArea" {
+        return element
+    }
+
+    var children: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &children)
+    if let childrenArray = children as? [AXUIElement] {
+        for child in childrenArray {
+            if let found = findScrollArea(element: child, depth: depth + 1) {
+                return found
+            }
+        }
+    }
+    return nil
+}
+
+func getVerticalScrollBar(from scrollArea: AXUIElement) -> AXUIElement? {
+    var bar: AnyObject?
+    AXUIElementCopyAttributeValue(scrollArea, kAXVerticalScrollBarAttribute as CFString, &bar)
+    if let barElem = bar, CFGetTypeID(barElem) == AXUIElementGetTypeID() {
+        return (barElem as! AXUIElement)
+    }
+    return nil
+}
+
+func getScrollRange(scrollBar: AXUIElement) -> (Double, Double)? {
+    var minVal: AnyObject?
+    var maxVal: AnyObject?
+    AXUIElementCopyAttributeValue(scrollBar, kAXMinValueAttribute as CFString, &minVal)
+    AXUIElementCopyAttributeValue(scrollBar, kAXMaxValueAttribute as CFString, &maxVal)
+
+    let minNum = minVal as? NSNumber
+    let maxNum = maxVal as? NSNumber
+    if let min = minNum?.doubleValue, let max = maxNum?.doubleValue {
+        return (min, max)
+    }
+    return nil
+}
+
+func setScrollValue(scrollBar: AXUIElement, value: Double) {
+    let num = NSNumber(value: value)
+    AXUIElementSetAttributeValue(scrollBar, kAXValueAttribute as CFString, num)
+}
+
+func collectLines(from element: AXUIElement) -> [String] {
+    let text = getText(element: element, depth: 0)
+    if text.isEmpty { return [] }
+    return text.split(separator: "\n").map { String($0) }
+}
+
 // === MAIN ===
 let args = CommandLine.arguments
 if args.count < 2 { 
@@ -210,20 +265,81 @@ for app in apps {
         let pid = app.processIdentifier
         let appElem = AXUIElementCreateApplication(pid)
         
-        // Get windows
-        var windows: AnyObject?
-        AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute as CFString, &windows)
-        
-        if let windowList = windows as? [AXUIElement], let mainWin = windowList.first {
+        // Prefer focused window if available (better for long chats)
+        var focusedWin: AnyObject?
+        AXUIElementCopyAttributeValue(appElem, kAXFocusedWindowAttribute as CFString, &focusedWin)
+
+        var targetWindow: AXUIElement? = nil
+        if let focused = focusedWin, CFGetTypeID(focused) == AXUIElementGetTypeID() {
+            targetWindow = (focused as! AXUIElement)
+        } else {
+            // Fallback to first window
+            var windows: AnyObject?
+            AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute as CFString, &windows)
+            if let windowList = windows as? [AXUIElement], let mainWin = windowList.first {
+                targetWindow = mainWin
+            }
+        }
+
+        if let mainWin = targetWindow {
             // Extract window title first
             var winTitle: AnyObject?
             AXUIElementCopyAttributeValue(mainWin, kAXTitleAttribute as CFString, &winTitle)
             if let title = winTitle as? String, !title.isEmpty {
                 print("[WINDOW_TITLE] \(title)")
             }
-            
-            // Extract all text content with role tagging
-            print(getText(element: mainWin, depth: 0))
+
+            // Attempt multi-pass scrolling extraction for long chats
+            let scrollArea = findScrollArea(element: mainWin, depth: 0)
+            let scrollBar = scrollArea != nil ? getVerticalScrollBar(from: scrollArea!) : nil
+
+            var allLines: [String] = []
+            var recentSet: Set<String> = []
+            var recentQueue: [String] = []
+            let recentLimit = 800
+
+            func appendLines(_ lines: [String]) {
+                for line in lines {
+                    if recentSet.contains(line) {
+                        continue
+                    }
+                    allLines.append(line)
+                    recentSet.insert(line)
+                    recentQueue.append(line)
+                    if recentQueue.count > recentLimit {
+                        let removed = recentQueue.removeFirst()
+                        recentSet.remove(removed)
+                    }
+                }
+            }
+
+            if let bar = scrollBar, let range = getScrollRange(scrollBar: bar) {
+                let minVal = range.0
+                let maxVal = range.1
+                let steps = 50
+
+                // Start at top
+                setScrollValue(scrollBar: bar, value: minVal)
+                usleep(200_000)
+                appendLines(collectLines(from: mainWin))
+
+                if maxVal > minVal {
+                    for i in 1...steps {
+                        let t = Double(i) / Double(steps)
+                        let val = minVal + (maxVal - minVal) * t
+                        setScrollValue(scrollBar: bar, value: val)
+                        usleep(150_000)
+                        appendLines(collectLines(from: mainWin))
+                    }
+                }
+            } else {
+                // Fallback: single pass
+                appendLines(collectLines(from: mainWin))
+            }
+
+            if !allLines.isEmpty {
+                print(allLines.joined(separator: "\n"))
+            }
         }
         break
     }

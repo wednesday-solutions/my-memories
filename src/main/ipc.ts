@@ -62,7 +62,7 @@ Return JSON only with this shape:
   "entities": [
     {
       "name": "string",
-      "type": "Person | Organization | Company | Product | Place | Object | Project | Concept | Event | Other",
+      "type": "Person | Organization | Product | Place | Object | Project | Concept | Event | Other",
       "facts": ["short factual statements about the entity"]
     }
   ]

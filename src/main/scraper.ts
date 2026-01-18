@@ -59,11 +59,17 @@ export class ScraperService {
         }
       });
       
-      // Timeout
-      setTimeout(() => {
+      // Timeout (longer for large chats)
+      const timeoutMs = 20000;
+      const timeout = setTimeout(() => {
+          console.warn(`[Scraper] Timeout after ${timeoutMs}ms, returning partial output.`);
           child.kill();
           resolve(output.trim());
-      }, 5000); 
+      }, timeoutMs);
+
+      child.on("close", () => {
+          clearTimeout(timeout);
+      });
     });
   }
 }
