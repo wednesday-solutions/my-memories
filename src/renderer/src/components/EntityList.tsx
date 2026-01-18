@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface Entity {
     id: number;
@@ -29,8 +29,11 @@ export function EntityList({ appName }: EntityListProps) {
     const [entities, setEntities] = useState<Entity[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [typeFilter, setTypeFilter] = useState('All');
     const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
     const [details, setDetails] = useState<EntityDetails | null>(null);
+
+    const normalizeType = (value?: string) => (value || 'Unknown').trim() || 'Unknown';
 
     const fetchEntities = async () => {
         setLoading(true);
@@ -68,11 +71,39 @@ export function EntityList({ appName }: EntityListProps) {
         }
     }, [selectedEntityId, appName]);
 
-    const filteredEntities = entities.filter(e =>
-        e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (e.summary || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const typeTabs = useMemo(() => {
+        const types = Array.from(new Set(entities.map(e => normalizeType(e.type)))).sort();
+        return ['All', ...types];
+    }, [entities]);
+
+    const filteredEntities = useMemo(() => {
+        const query = searchQuery.toLowerCase();
+        return entities.filter(e => {
+            const normalizedType = normalizeType(e.type);
+            const matchesType = typeFilter === 'All' || normalizedType === typeFilter;
+            const matchesSearch =
+                e.name.toLowerCase().includes(query) ||
+                normalizedType.toLowerCase().includes(query) ||
+                (e.summary || '').toLowerCase().includes(query);
+            return matchesType && matchesSearch;
+        });
+    }, [entities, searchQuery, typeFilter]);
+
+    useEffect(() => {
+        if (typeFilter !== 'All' && !typeTabs.includes(typeFilter)) {
+            setTypeFilter('All');
+        }
+    }, [typeTabs, typeFilter]);
+
+    useEffect(() => {
+        if (filteredEntities.length === 0) {
+            setSelectedEntityId(null);
+            return;
+        }
+        if (!filteredEntities.some(e => e.id === selectedEntityId)) {
+            setSelectedEntityId(filteredEntities[0].id);
+        }
+    }, [filteredEntities, selectedEntityId]);
 
     const formatTime = (dateStr: string) => {
         const iso = dateStr.replace(' ', 'T') + 'Z';
@@ -82,6 +113,19 @@ export function EntityList({ appName }: EntityListProps) {
     return (
         <div className="entity-list-container" style={{ display: 'flex', gap: '16px' }}>
             <div style={{ width: '35%', minWidth: '240px' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                    {typeTabs.map(type => (
+                        <button
+                            key={type}
+                            className={`btn ${typeFilter === type ? 'active' : ''}`}
+                            onClick={() => setTypeFilter(type)}
+                            style={{ opacity: typeFilter === type ? 1 : 0.6 }}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
                 <div style={{ marginBottom: '12px' }}>
                     <input
                         type="text"

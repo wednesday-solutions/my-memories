@@ -20,9 +20,14 @@ try {
     getMasterMemory: () => ipcRenderer.invoke('db:get-master-memory'),
     regenerateMasterMemory: () => ipcRenderer.invoke('db:regenerate-master-memory'),
 
+    // RAG Chat
+    ragChat: (query: string, appName?: string) => ipcRenderer.invoke('rag:chat', query, appName),
+
     // Entities
     getEntities: (appName?: string) => ipcRenderer.invoke('db:get-entities', appName),
     getEntityDetails: (entityId: number, appName?: string) => ipcRenderer.invoke('db:get-entity-details', entityId, appName),
+    getEntityGraph: (appName?: string, focusEntityId?: number, edgeLimit?: number) => ipcRenderer.invoke('db:get-entity-graph', appName, focusEntityId, edgeLimit),
+    rebuildEntityGraph: () => ipcRenderer.invoke('db:rebuild-entity-graph'),
     
     // Watcher Events
     onWatcherData: (callback: (data: any) => void) => {

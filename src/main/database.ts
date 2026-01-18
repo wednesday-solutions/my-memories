@@ -79,6 +79,34 @@ export function getDB() {
         content='memories'
     );
 
+    CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
+      content,
+      conversation_id UNINDEXED,
+      content='messages',
+      content_rowid='id'
+    );
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS summary_fts USING fts5(
+      summary,
+      session_id UNINDEXED,
+      content='chat_summaries'
+    );
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS entity_fts USING fts5(
+      name,
+      summary,
+      type,
+      content='entities',
+      content_rowid='id'
+    );
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS entity_fact_fts USING fts5(
+      fact,
+      entity_id UNINDEXED,
+      content='entity_facts',
+      content_rowid='id'
+    );
+
     CREATE TABLE IF NOT EXISTS entities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL COLLATE NOCASE,
@@ -98,6 +126,30 @@ export function getDB() {
       UNIQUE(entity_id, fact),
       FOREIGN KEY(entity_id) REFERENCES entities(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS entity_sessions (
+      entity_id INTEGER NOT NULL,
+      session_id TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(entity_id, session_id),
+      FOREIGN KEY(entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+      FOREIGN KEY(session_id) REFERENCES conversations(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS entity_edges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_entity_id INTEGER NOT NULL,
+      target_entity_id INTEGER NOT NULL,
+      type TEXT NOT NULL DEFAULT 'cooccurrence',
+      weight REAL NOT NULL DEFAULT 0,
+      evidence_count INTEGER NOT NULL DEFAULT 0,
+      last_session_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(source_entity_id, target_entity_id, type),
+      FOREIGN KEY(source_entity_id) REFERENCES entities(id) ON DELETE CASCADE,
+      FOREIGN KEY(target_entity_id) REFERENCES entities(id) ON DELETE CASCADE
+    );
   `);
 
   // Triggers to keep FTS in sync
@@ -111,12 +163,65 @@ export function getDB() {
     `CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
       INSERT INTO memory_fts(memory_fts, rowid, content) VALUES('delete', old.id, old.content);
       INSERT INTO memory_fts(rowid, content) VALUES (new.id, new.content);
+    END;`,
+
+    `CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+      INSERT INTO message_fts(rowid, content, conversation_id) VALUES (new.id, new.content, new.conversation_id);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+      INSERT INTO message_fts(message_fts, rowid, content, conversation_id) VALUES('delete', old.id, old.content, old.conversation_id);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+      INSERT INTO message_fts(message_fts, rowid, content, conversation_id) VALUES('delete', old.id, old.content, old.conversation_id);
+      INSERT INTO message_fts(rowid, content, conversation_id) VALUES (new.id, new.content, new.conversation_id);
+    END;`,
+
+    `CREATE TRIGGER IF NOT EXISTS summaries_ai AFTER INSERT ON chat_summaries BEGIN
+      INSERT INTO summary_fts(rowid, summary, session_id) VALUES (new.rowid, new.summary, new.session_id);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS summaries_ad AFTER DELETE ON chat_summaries BEGIN
+      INSERT INTO summary_fts(summary_fts, rowid, summary, session_id) VALUES('delete', old.rowid, old.summary, old.session_id);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS summaries_au AFTER UPDATE ON chat_summaries BEGIN
+      INSERT INTO summary_fts(summary_fts, rowid, summary, session_id) VALUES('delete', old.rowid, old.summary, old.session_id);
+      INSERT INTO summary_fts(rowid, summary, session_id) VALUES (new.rowid, new.summary, new.session_id);
+    END;`,
+
+    `CREATE TRIGGER IF NOT EXISTS entities_ai AFTER INSERT ON entities BEGIN
+      INSERT INTO entity_fts(rowid, name, summary, type) VALUES (new.id, new.name, new.summary, new.type);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS entities_ad AFTER DELETE ON entities BEGIN
+      INSERT INTO entity_fts(entity_fts, rowid, name, summary, type) VALUES('delete', old.id, old.name, old.summary, old.type);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS entities_au AFTER UPDATE ON entities BEGIN
+      INSERT INTO entity_fts(entity_fts, rowid, name, summary, type) VALUES('delete', old.id, old.name, old.summary, old.type);
+      INSERT INTO entity_fts(rowid, name, summary, type) VALUES (new.id, new.name, new.summary, new.type);
+    END;`,
+
+    `CREATE TRIGGER IF NOT EXISTS entity_facts_ai AFTER INSERT ON entity_facts BEGIN
+      INSERT INTO entity_fact_fts(rowid, fact, entity_id) VALUES (new.id, new.fact, new.entity_id);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS entity_facts_ad AFTER DELETE ON entity_facts BEGIN
+      INSERT INTO entity_fact_fts(entity_fact_fts, rowid, fact, entity_id) VALUES('delete', old.id, old.fact, old.entity_id);
+    END;`,
+    `CREATE TRIGGER IF NOT EXISTS entity_facts_au AFTER UPDATE ON entity_facts BEGIN
+      INSERT INTO entity_fact_fts(entity_fact_fts, rowid, fact, entity_id) VALUES('delete', old.id, old.fact, old.entity_id);
+      INSERT INTO entity_fact_fts(rowid, fact, entity_id) VALUES (new.id, new.fact, new.entity_id);
     END;`
   ];
 
   for(const trigger of triggers) {
       db.exec(trigger);
   }
+
+    try {
+      db.exec("INSERT INTO message_fts(message_fts) VALUES('rebuild')");
+      db.exec("INSERT INTO summary_fts(summary_fts) VALUES('rebuild')");
+      db.exec("INSERT INTO entity_fts(entity_fts) VALUES('rebuild')");
+      db.exec("INSERT INTO entity_fact_fts(entity_fact_fts) VALUES('rebuild')");
+    } catch (e) {
+      // Ignore rebuild errors
+    }
 
   // Create Chat Summaries Table if not exists (migrating to conversations table eventually)
   db.exec(`
@@ -276,6 +381,122 @@ export function addEntityFact(entityId: number, fact: string, sessionId?: string
     return info.changes > 0;
 }
 
+export function upsertEntitySession(entityId: number, sessionId: string): void {
+    const db = getDB();
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO entity_sessions (entity_id, session_id)
+      VALUES (?, ?)
+    `);
+    stmt.run(entityId, sessionId);
+}
+
+function normalizeEdgePair(a: number, b: number): [number, number] {
+    return a < b ? [a, b] : [b, a];
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function rebuildEntityEdgesForSession(sessionId: string): void {
+    const db = getDB();
+    const entities = db.prepare(`
+      SELECT entity_id FROM entity_sessions WHERE session_id = ?
+    `).all(sessionId) as { entity_id: number }[];
+
+    const entityIds = entities.map(e => e.entity_id).filter(Boolean);
+    if (entityIds.length < 2) return;
+
+    const upsertEdge = db.prepare(`
+      INSERT INTO entity_edges (source_entity_id, target_entity_id, type, weight, evidence_count, last_session_id, updated_at)
+      VALUES (?, ?, 'cooccurrence', 1, 1, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(source_entity_id, target_entity_id, type) DO UPDATE SET
+        weight = entity_edges.weight + 1,
+        evidence_count = entity_edges.evidence_count + 1,
+        last_session_id = excluded.last_session_id,
+        updated_at = excluded.updated_at
+    `);
+
+    for (let i = 0; i < entityIds.length; i++) {
+        for (let j = i + 1; j < entityIds.length; j++) {
+            const [sourceId, targetId] = normalizeEdgePair(entityIds[i], entityIds[j]);
+            upsertEdge.run(sourceId, targetId, sessionId);
+        }
+    }
+}
+
+  function rebuildEntityEdgesFromMentions(): void {
+    const db = getDB();
+    const entities = db.prepare(`
+      SELECT id, name, summary FROM entities
+    `).all() as { id: number; name: string; summary: string | null }[];
+
+    if (entities.length < 2) return;
+
+    const matchers = entities.map(e => ({
+      id: e.id,
+      name: e.name,
+      regex: new RegExp(`\\b${escapeRegExp(e.name)}\\b`, 'i')
+    }));
+
+    const upsertMention = db.prepare(`
+      INSERT INTO entity_edges (source_entity_id, target_entity_id, type, weight, evidence_count, last_session_id, updated_at)
+      VALUES (?, ?, 'mention', 1, 1, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(source_entity_id, target_entity_id, type) DO UPDATE SET
+      weight = entity_edges.weight + 1,
+      evidence_count = entity_edges.evidence_count + 1,
+      last_session_id = COALESCE(excluded.last_session_id, entity_edges.last_session_id),
+      updated_at = excluded.updated_at
+    `);
+
+    const facts = db.prepare(`
+      SELECT entity_id, fact, source_session_id FROM entity_facts
+    `).all() as { entity_id: number; fact: string; source_session_id: string | null }[];
+
+    for (const factRow of facts) {
+      const text = factRow.fact || '';
+      if (!text) continue;
+      for (const matcher of matchers) {
+        if (matcher.id === factRow.entity_id) continue;
+        if (matcher.regex.test(text)) {
+          const [sourceId, targetId] = normalizeEdgePair(factRow.entity_id, matcher.id);
+          upsertMention.run(sourceId, targetId, factRow.source_session_id || null);
+        }
+      }
+    }
+
+    for (const entity of entities) {
+      const text = entity.summary || '';
+      if (!text) continue;
+      for (const matcher of matchers) {
+        if (matcher.id === entity.id) continue;
+        if (matcher.regex.test(text)) {
+          const [sourceId, targetId] = normalizeEdgePair(entity.id, matcher.id);
+          upsertMention.run(sourceId, targetId, null);
+        }
+      }
+    }
+  }
+
+  export function rebuildEntityEdgesForAllSessions(): void {
+    const db = getDB();
+    db.prepare(`
+      INSERT OR IGNORE INTO entity_sessions (entity_id, session_id)
+      SELECT entity_id, source_session_id
+      FROM entity_facts
+      WHERE source_session_id IS NOT NULL
+    `).run();
+
+    db.prepare('DELETE FROM entity_edges').run();
+
+    const sessions = db.prepare('SELECT DISTINCT session_id FROM entity_sessions').all() as { session_id: string }[];
+    for (const row of sessions) {
+      rebuildEntityEdgesForSession(row.session_id);
+    }
+
+    rebuildEntityEdgesFromMentions();
+  }
+
 export function getEntities(appName?: string) {
     const db = getDB();
     let query = `
@@ -285,10 +506,12 @@ export function getEntities(appName?: string) {
         e.type,
         e.summary,
         e.updated_at,
-        COUNT(f.id) as fact_count
+        COUNT(DISTINCT f.id) as fact_count,
+        COUNT(DISTINCT es.session_id) as session_count
       FROM entities e
       LEFT JOIN entity_facts f ON f.entity_id = e.id
-      LEFT JOIN conversations c ON f.source_session_id = c.id
+      LEFT JOIN entity_sessions es ON es.entity_id = e.id
+      LEFT JOIN conversations c ON es.session_id = c.id
     `;
 
     const params: any[] = [];
@@ -322,3 +545,166 @@ export function getEntityDetails(entityId: number, appName?: string) {
     const facts = db.prepare(factsQuery).all(...params);
     return { entity, facts };
 }
+
+  export function getEntityGraph(appName?: string, focusEntityId?: number, edgeLimit: number = 200, factsPerNode: number = 3) {
+    const db = getDB();
+
+    let allowedEntityIds: number[] | null = null;
+    if (appName && appName !== 'All') {
+      const rows = db.prepare(`
+        SELECT DISTINCT es.entity_id
+        FROM entity_sessions es
+        JOIN conversations c ON es.session_id = c.id
+        WHERE c.app_name LIKE ?
+      `).all(`%${appName}%`) as { entity_id: number }[];
+      allowedEntityIds = rows.map(r => r.entity_id);
+      if (allowedEntityIds.length === 0) {
+        return { nodes: [], edges: [] };
+      }
+    }
+
+    const edgeParams: any[] = [];
+    let edgeQuery = `
+      SELECT source_entity_id as source, target_entity_id as target, type, weight, evidence_count, updated_at
+      FROM entity_edges
+    `;
+
+    const whereClauses: string[] = [];
+    if (typeof focusEntityId === 'number') {
+      whereClauses.push('(source_entity_id = ? OR target_entity_id = ?)');
+      edgeParams.push(focusEntityId, focusEntityId);
+    }
+
+    if (allowedEntityIds) {
+      const placeholders = allowedEntityIds.map(() => '?').join(',');
+      whereClauses.push(`source_entity_id IN (${placeholders})`);
+      whereClauses.push(`target_entity_id IN (${placeholders})`);
+      edgeParams.push(...allowedEntityIds, ...allowedEntityIds);
+    }
+
+    if (whereClauses.length > 0) {
+      edgeQuery += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+
+    edgeQuery += ` ORDER BY weight DESC LIMIT ?`;
+    edgeParams.push(edgeLimit);
+
+    const edges = db.prepare(edgeQuery).all(...edgeParams) as {
+      source: number;
+      target: number;
+      type: string;
+      weight: number;
+      evidence_count: number;
+      updated_at: string;
+    }[];
+
+    if (edges.length === 0 && typeof focusEntityId !== 'number') {
+      let nodeQuery = `
+        SELECT e.id, e.name, e.type, e.summary, e.updated_at,
+           COUNT(DISTINCT f.id) as fact_count,
+           COUNT(DISTINCT es.session_id) as session_count
+        FROM entities e
+        LEFT JOIN entity_facts f ON f.entity_id = e.id
+        LEFT JOIN entity_sessions es ON es.entity_id = e.id
+      `;
+      const nodeParams: any[] = [];
+      if (allowedEntityIds) {
+        const placeholders = allowedEntityIds.map(() => '?').join(',');
+        nodeQuery += ` WHERE e.id IN (${placeholders}) `;
+        nodeParams.push(...allowedEntityIds);
+      }
+      nodeQuery += ` GROUP BY e.id ORDER BY e.updated_at DESC LIMIT 50`;
+
+      const nodes = db.prepare(nodeQuery).all(...nodeParams) as {
+        id: number;
+        name: string;
+        type: string;
+        summary: string | null;
+        updated_at: string;
+        fact_count: number;
+        session_count: number;
+      }[];
+
+      const nodeIds = nodes.map(n => n.id);
+      if (nodeIds.length === 0) return { nodes: [], edges: [] };
+
+      const nodePlaceholders = nodeIds.map(() => '?').join(',');
+      const facts = db.prepare(`
+        SELECT entity_id, fact, created_at
+        FROM entity_facts
+        WHERE entity_id IN (${nodePlaceholders})
+        ORDER BY created_at DESC
+      `).all(...nodeIds) as { entity_id: number; fact: string; created_at: string }[];
+
+      const factsByEntity = new Map<number, string[]>();
+      for (const row of facts) {
+        const list = factsByEntity.get(row.entity_id) || [];
+        if (list.length < factsPerNode) {
+          list.push(row.fact);
+          factsByEntity.set(row.entity_id, list);
+        }
+      }
+
+      const nodesWithFacts = nodes.map(n => ({
+        ...n,
+        facts: factsByEntity.get(n.id) || []
+      }));
+
+      return { nodes: nodesWithFacts, edges: [] };
+    }
+
+    const nodeIdSet = new Set<number>();
+    edges.forEach(e => {
+      nodeIdSet.add(e.source);
+      nodeIdSet.add(e.target);
+    });
+    if (typeof focusEntityId === 'number') nodeIdSet.add(focusEntityId);
+
+    const nodeIds = Array.from(nodeIdSet);
+    if (nodeIds.length === 0) {
+      return { nodes: [], edges: [] };
+    }
+
+    const nodePlaceholders = nodeIds.map(() => '?').join(',');
+    const nodes = db.prepare(`
+      SELECT e.id, e.name, e.type, e.summary, e.updated_at,
+         COUNT(DISTINCT f.id) as fact_count,
+         COUNT(DISTINCT es.session_id) as session_count
+      FROM entities e
+      LEFT JOIN entity_facts f ON f.entity_id = e.id
+      LEFT JOIN entity_sessions es ON es.entity_id = e.id
+      WHERE e.id IN (${nodePlaceholders})
+      GROUP BY e.id
+    `).all(...nodeIds) as {
+      id: number;
+      name: string;
+      type: string;
+      summary: string | null;
+      updated_at: string;
+      fact_count: number;
+      session_count: number;
+    }[];
+
+    const facts = db.prepare(`
+      SELECT entity_id, fact, created_at
+      FROM entity_facts
+      WHERE entity_id IN (${nodePlaceholders})
+      ORDER BY created_at DESC
+    `).all(...nodeIds) as { entity_id: number; fact: string; created_at: string }[];
+
+    const factsByEntity = new Map<number, string[]>();
+    for (const row of facts) {
+      const list = factsByEntity.get(row.entity_id) || [];
+      if (list.length < factsPerNode) {
+        list.push(row.fact);
+        factsByEntity.set(row.entity_id, list);
+      }
+    }
+
+    const nodesWithFacts = nodes.map(n => ({
+      ...n,
+      facts: factsByEntity.get(n.id) || []
+    }));
+
+    return { nodes: nodesWithFacts, edges };
+  }

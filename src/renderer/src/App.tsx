@@ -2,10 +2,13 @@
 import { ChatList } from './components/ChatList';
 import { ChatDetail } from './components/ChatDetail';
 import { MemoryList } from './components/MemoryList';
+import { EntityList } from './components/EntityList';
+import { EntityGraph } from './components/EntityGraph';
+import { MemoryChat } from './components/MemoryChat';
 import { useState } from 'react';
 
 const TABS = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'];
-type ViewMode = 'chats' | 'memories';
+type ViewMode = 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
 
 function App() {
   const [activeTab, setActiveTab] = useState('All');
@@ -33,6 +36,13 @@ function App() {
         <div style={{ marginBottom: '20px', fontWeight: 700, fontSize: '1.1rem' }}>Your Memories</div>
 
         <button
+          className={`btn ${viewMode === 'memory-chat' ? 'active' : ''}`}
+          onClick={() => { setViewMode('memory-chat'); setSelectedSessionId(null); }}
+          style={{ justifyContent: 'flex-start', opacity: viewMode === 'memory-chat' ? 1 : 0.6 }}
+        >
+          Chat
+        </button>
+        <button
           className={`btn ${viewMode === 'chats' ? 'active' : ''}`}
           onClick={() => { setViewMode('chats'); setSelectedSessionId(null); }}
           style={{ justifyContent: 'flex-start', opacity: viewMode === 'chats' ? 1 : 0.6 }}
@@ -45,6 +55,20 @@ function App() {
           style={{ justifyContent: 'flex-start', opacity: viewMode === 'memories' ? 1 : 0.6 }}
         >
           Memories
+        </button>
+        <button
+          className={`btn ${viewMode === 'entities' ? 'active' : ''}`}
+          onClick={() => { setViewMode('entities'); setSelectedSessionId(null); }}
+          style={{ justifyContent: 'flex-start', opacity: viewMode === 'entities' ? 1 : 0.6 }}
+        >
+          Entities
+        </button>
+        <button
+          className={`btn ${viewMode === 'graph' ? 'active' : ''}`}
+          onClick={() => { setViewMode('graph'); setSelectedSessionId(null); }}
+          style={{ justifyContent: 'flex-start', opacity: viewMode === 'graph' ? 1 : 0.6 }}
+        >
+          Graph
         </button>
       </div>
 
@@ -83,17 +107,23 @@ function App() {
 
         <div className="content-view" style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {/* Logic: If Detail View is active, show it. Else show the List View (Chats or Memories) */}
-          {selectedSessionId ? (
+          {viewMode === 'chats' && selectedSessionId ? (
             <ChatDetail sessionId={selectedSessionId} onBack={handleBack} />
           ) : (
             <div style={{ padding: '20px', height: '100%', overflowY: 'auto' }}>
-              {viewMode === 'chats' ? (
+              {viewMode === 'memory-chat' ? (
+                <MemoryChat appName={activeTab} />
+              ) : viewMode === 'chats' ? (
                 <ChatList
                   appName={activeTab}
                   onSelectSession={setSelectedSessionId}
                 />
-              ) : (
+              ) : viewMode === 'memories' ? (
                 <MemoryList appName={activeTab} />
+              ) : viewMode === 'entities' ? (
+                <EntityList appName={activeTab} />
+              ) : (
+                <EntityGraph appName={activeTab} />
               )}
             </div>
           )}

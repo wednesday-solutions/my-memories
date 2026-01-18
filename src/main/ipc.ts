@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
@@ -50,6 +50,27 @@ function safeParseJson<T>(input: string, fallback: T): T {
     }
 }
 
+const STOPWORDS = new Set([
+    'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'know', 'about', 'your', 'you', 'me', 'my', 'all', 'do',
+    'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'will', 'would', 'should', 'could', 'can', 'may', 'might'
+]);
+
+function tokenizeQuery(query: string, maxTokens: number = 6): string[] {
+    const tokens = query
+        .toLowerCase()
+        .split(/\s+/)
+        .map(t => t.replace(/[^a-z0-9_-]/g, ''))
+        .filter(t => t.length >= 3)
+        .filter(t => !STOPWORDS.has(t));
+    return Array.from(new Set(tokens)).slice(0, maxTokens);
+}
+
+function clipText(text: string, maxLength: number): string {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.slice(0, Math.max(0, maxLength - 1)) + '…';
+}
+
 async function extractEntitiesForSession(sessionId: string): Promise<void> {
     const memories = getMemoriesForSession(sessionId);
     if (!memories || memories.length === 0) return;
@@ -86,6 +107,7 @@ JSON:`;
 
         if (!parsed.entities || parsed.entities.length === 0) return;
 
+        const touchedEntityIds = new Set<number>();
         for (const entity of parsed.entities) {
             const name = (entity.name || '').trim();
             if (!name) continue;
@@ -94,6 +116,8 @@ JSON:`;
 
             const entityId = upsertEntity(name, type);
             if (!entityId) continue;
+            touchedEntityIds.add(entityId);
+            upsertEntitySession(entityId, sessionId);
 
             const newFacts: string[] = [];
             for (const fact of facts) {
@@ -103,7 +127,7 @@ JSON:`;
 
             if (newFacts.length === 0) continue;
 
-            const details = getEntityDetails(entityId);
+            const details = getEntityDetails(entityId) as { entity?: { summary?: string } } | null;
             const existingSummary = details?.entity?.summary || '';
 
             const summaryPrompt = `You are updating an entity profile summary.
@@ -127,6 +151,10 @@ Write a concise, well-structured summary. Include only verified facts. Do not ad
             } catch (e) {
                 console.error('[IPC] Failed to update entity summary:', e);
             }
+        }
+
+        if (touchedEntityIds.size > 1) {
+            rebuildEntityEdgesForSession(sessionId);
         }
     } catch (e) {
         console.error('[IPC] Entity extraction failed:', e);
@@ -284,6 +312,186 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
       };
   });
 
+  ipcMain.handle('rag:chat', async (_, query: string, appName?: string) => {
+      const db = getDB();
+      const tokens = tokenizeQuery(query);
+      const ftsQuery = tokens.length > 0 ? tokens.join(' OR ') : query;
+
+      let memories: any[] = [];
+      try {
+          const queryVector = await embeddings.generateEmbedding(query);
+          const vecStr = JSON.stringify(queryVector);
+          const params: any[] = [vecStr];
+          let memoryQuery = `
+            SELECT *, cosine_similarity(embedding, ?) as score
+            FROM memories
+            WHERE embedding IS NOT NULL AND embedding != '[]'
+          `;
+          if (appName && appName !== 'All') {
+              memoryQuery += ` AND source_app LIKE ? `;
+              params.push(`%${appName}%`);
+          }
+          memoryQuery += ` ORDER BY score DESC LIMIT 12`;
+          memories = db.prepare(memoryQuery).all(...params);
+          memories = memories.filter((m: any) => typeof m.score !== 'number' || m.score >= 0.2);
+      } catch (e) {
+          console.error('[RAG] Vector search failed, falling back to FTS', e);
+          const params: any[] = [];
+          let fallbackQuery = `
+            SELECT memories.*
+            FROM memories
+            JOIN memory_fts ON memories.id = memory_fts.rowid
+            WHERE memory_fts MATCH ?
+          `;
+          params.push(query);
+          if (appName && appName !== 'All') {
+              fallbackQuery += ` AND memories.source_app LIKE ? `;
+              params.push(`%${appName}%`);
+          }
+          fallbackQuery += ` LIMIT 12`;
+          memories = db.prepare(fallbackQuery).all(...params);
+      }
+
+            const messageParams: any[] = [ftsQuery];
+            let messageQuery = `
+                SELECT m.id, m.conversation_id, m.role, m.content, m.created_at, c.title, c.app_name,
+                             bm25(message_fts) as score
+                FROM message_fts
+                JOIN messages m ON message_fts.rowid = m.id
+                JOIN conversations c ON c.id = m.conversation_id
+                WHERE message_fts MATCH ?
+            `;
+            if (appName && appName !== 'All') {
+                    messageQuery += ` AND c.app_name LIKE ? `;
+                    messageParams.push(`%${appName}%`);
+            }
+            messageQuery += ` ORDER BY score ASC LIMIT 12`;
+            const messages = db.prepare(messageQuery).all(...messageParams);
+
+            const summaryParams: any[] = [ftsQuery];
+            let summaryQuery = `
+                SELECT cs.session_id, cs.summary, c.title, c.app_name, c.updated_at,
+                             bm25(summary_fts) as score
+                FROM summary_fts
+                JOIN chat_summaries cs ON summary_fts.rowid = cs.rowid
+                JOIN conversations c ON c.id = cs.session_id
+                WHERE summary_fts MATCH ?
+            `;
+            if (appName && appName !== 'All') {
+                    summaryQuery += ` AND c.app_name LIKE ? `;
+                    summaryParams.push(`%${appName}%`);
+            }
+            summaryQuery += ` ORDER BY score ASC LIMIT 8`;
+            const summaries = db.prepare(summaryQuery).all(...summaryParams);
+
+            const entityParams: any[] = [ftsQuery];
+            let entityQuery = `
+                SELECT e.id, e.name, e.type, e.summary, e.updated_at,
+                             bm25(entity_fts) as score
+                FROM entity_fts
+                JOIN entities e ON entity_fts.rowid = e.id
+                WHERE entity_fts MATCH ?
+            `;
+            if (appName && appName !== 'All') {
+                    entityQuery += `
+                        AND e.id IN (
+                            SELECT es.entity_id
+                            FROM entity_sessions es
+                            JOIN conversations c ON c.id = es.session_id
+                            WHERE c.app_name LIKE ?
+                        )
+                    `;
+                    entityParams.push(`%${appName}%`);
+            }
+            entityQuery += ` ORDER BY score ASC LIMIT 8`;
+            const entities = db.prepare(entityQuery).all(...entityParams);
+
+            const factParams: any[] = [ftsQuery];
+            let factQuery = `
+                SELECT f.fact, f.created_at, f.source_session_id, e.name, e.type,
+                             bm25(entity_fact_fts) as score
+                FROM entity_fact_fts
+                JOIN entity_facts f ON entity_fact_fts.rowid = f.id
+                JOIN entities e ON e.id = f.entity_id
+                WHERE entity_fact_fts MATCH ?
+            `;
+            if (appName && appName !== 'All') {
+                    factQuery += ` AND f.source_session_id IN (SELECT id FROM conversations WHERE app_name LIKE ?) `;
+                    factParams.push(`%${appName}%`);
+            }
+            factQuery += ` ORDER BY score ASC LIMIT 8`;
+            const entityFacts = db.prepare(factQuery).all(...factParams);
+
+    const master = getMasterMemory();
+    const masterContent = master?.content || '';
+    const masterRelevant = tokens.length > 0 && tokens.some(t => masterContent.toLowerCase().includes(t));
+    const masterFallback = !masterRelevant && (!memories.length && !messages.length && !summaries.length && !entities.length && !entityFacts.length);
+
+      const memoryLines = memories.slice(0, 6).map((m: any, idx: number) =>
+          `- [Memory ${idx + 1}] (${m.source_app || 'Unknown'} | ${m.created_at}): ${clipText(m.content, 500)}`
+      ).join('\n');
+
+      const messageLines = messages.slice(0, 6).map((m: any, idx: number) =>
+          `- [Message ${idx + 1}] (${m.app_name || 'Unknown'} | ${m.title || 'Untitled'} | ${m.created_at}) ${m.role}: ${clipText(m.content, 400)}`
+      ).join('\n');
+
+      const summaryLines = summaries.slice(0, 6).map((s: any, idx: number) =>
+          `- [Summary ${idx + 1}] (${s.app_name || 'Unknown'} | ${s.title || 'Untitled'}): ${clipText(s.summary, 600)}`
+      ).join('\n');
+
+      const entityLines = entities.slice(0, 6).map((e: any, idx: number) =>
+          `- [Entity ${idx + 1}] (${e.type || 'Unknown'}) ${e.name}: ${clipText(e.summary || '', 400)}`
+      ).join('\n');
+
+      const factLines = entityFacts.slice(0, 6).map((f: any, idx: number) =>
+          `- [Entity Fact ${idx + 1}] (${f.type || 'Unknown'}) ${f.name}: ${clipText(f.fact, 400)}`
+      ).join('\n');
+
+    const contextBlock = `MASTER MEMORY:\n${masterRelevant || masterFallback ? clipText(masterContent || '(none)', 500) : '(not relevant)'}\n\nRELEVANT MEMORIES:\n${memoryLines || '(none)'}\n\nRELEVANT MESSAGES:\n${messageLines || '(none)'}\n\nRELEVANT SUMMARIES:\n${summaryLines || '(none)'}\n\nRELEVANT ENTITIES:\n${entityLines || '(none)'}\n\nRELEVANT ENTITY FACTS:\n${factLines || '(none)'}`;
+
+    const prompt = `You are a helpful assistant that answers using ONLY the provided context from the user's memories, conversations, summaries, and entities.
+Prefer specific evidence from messages, summaries, entities, and memories over the master memory. Use the master memory only as supplemental context.
+If the context does not contain the answer, say you don't have that information and ask a brief follow-up question.
+Do not fabricate details. Cite evidence by referencing item labels like [Memory 2] or [Message 3].
+
+User question:
+${query}
+
+Context:
+${contextBlock}
+
+Answer:`;
+
+      try {
+          const { llm } = await import('./llm');
+          const answer = await llm.chat(prompt);
+          return {
+              answer,
+              context: {
+                  masterMemory: masterRelevant || masterFallback ? masterContent : null,
+                  memories,
+                  messages,
+                  summaries,
+                  entities,
+                  entityFacts
+              }
+          };
+      } catch (e) {
+          console.error('[RAG] LLM chat failed:', e);
+          return {
+              answer: 'Sorry, I could not generate a response right now.',
+              context: {
+                  masterMemory: masterRelevant || masterFallback ? masterContent : null,
+                  memories,
+                  messages,
+                  summaries,
+                  entities,
+                  entityFacts
+              }
+          };
+      }
+  });
+
   ipcMain.handle('db:get-chat-sessions', (_, appName?: string) => {
       return getChatSessions(appName);
   });
@@ -296,6 +504,15 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
   });
   ipcMain.handle('db:get-entity-details', (_, entityId: number, appName?: string) => {
       return getEntityDetails(entityId, appName);
+  });
+
+  ipcMain.handle('db:get-entity-graph', (_, appName?: string, focusEntityId?: number, edgeLimit: number = 200) => {
+      return getEntityGraph(appName, focusEntityId, edgeLimit);
+  });
+
+  ipcMain.handle('db:rebuild-entity-graph', () => {
+      rebuildEntityEdgesForAllSessions();
+      return true;
   });
   ipcMain.handle('db:delete-session', async (_, sessionId: string) => {
       const db = getDB();
