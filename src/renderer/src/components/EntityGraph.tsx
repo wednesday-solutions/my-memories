@@ -50,6 +50,10 @@ const normalizeType = (type?: string): string => {
     if (!type) return 'Unknown';
     const t = type.trim().toLowerCase();
     
+    // Direct match against known types (case-insensitive)
+    const directMatch = Object.keys(typeColors).find(k => k.toLowerCase() === t);
+    if (directMatch) return directMatch;
+    
     // Map common aliases to our defined types
     const typeMap: Record<string, string> = {
         'library': 'Technology',
@@ -60,21 +64,31 @@ const normalizeType = (type?: string): string => {
         'sdk': 'Technology',
         'platform': 'Technology',
         'service': 'Technology',
+        'programming language': 'Technology',
+        'language': 'Technology',
+        'database': 'Technology',
         'company': 'Organization',
         'corp': 'Organization',
         'corporation': 'Organization',
         'startup': 'Organization',
+        'org': 'Organization',
+        'team': 'Organization',
+        'group': 'Organization',
         'human': 'Person',
         'user': 'Person',
         'individual': 'Person',
+        'people': 'Person',
         'place': 'Location',
         'city': 'Location',
         'country': 'Location',
         'region': 'Location',
+        'address': 'Location',
         'idea': 'Concept',
         'theory': 'Concept',
         'principle': 'Concept',
         'methodology': 'Concept',
+        'topic': 'Concept',
+        'subject': 'Concept',
         'meeting': 'Event',
         'conference': 'Event',
         'launch': 'Event',
@@ -84,16 +98,16 @@ const normalizeType = (type?: string): string => {
         'website': 'Product',
         'design system': 'Product',
         'ui library': 'Product',
+        'project': 'Product',
     };
 
     // Check for exact match in our map
     if (typeMap[t]) return typeMap[t];
-
-    // Capitalize first letter for direct check against typeColors
-    const normalized = t.charAt(0).toUpperCase() + t.slice(1);
     
-    // Check if we have a direct color match
-    if (typeColors[normalized]) return normalized;
+    // Check if type contains any known type keyword
+    for (const [alias, mapped] of Object.entries(typeMap)) {
+        if (t.includes(alias)) return mapped;
+    }
 
     // Default to Unknown
     return 'Unknown';
@@ -182,41 +196,36 @@ export function EntityGraph({ appName }: EntityGraphProps) {
         fetchGraph();
     }, [appName, focusEntityId]);
 
-    // Configure d3 forces for better node spacing
+    // Configure d3 forces once on mount
+    const forcesConfigured = useRef(false);
     useEffect(() => {
-        if (graphRef.current && graph.nodes.length > 0) {
-            // Access the force simulation
+        if (graphRef.current && graph.nodes.length > 0 && !forcesConfigured.current) {
             const fg = graphRef.current;
 
             // Configure charge force (node repulsion)
-            fg.d3Force('charge')?.strength(-400);
-            fg.d3Force('charge')?.distanceMax(600);
+            fg.d3Force('charge')?.strength(-300);
+            fg.d3Force('charge')?.distanceMax(500);
 
-            // Configure link force (spring length between connected nodes)
-            fg.d3Force('link')?.distance(120);
+            // Configure link force
+            fg.d3Force('link')?.distance(100);
 
             // Weaker centering force
-            fg.d3Force('center')?.strength(0.03);
+            fg.d3Force('center')?.strength(0.05);
 
-            // Reheat simulation to apply new forces
-            fg.d3ReheatSimulation();
+            forcesConfigured.current = true;
         }
-    }, [graph]);
+    }, [graph.nodes.length]);
 
-    // Focus camera on selected node
+    // Reset forces flag when graph is cleared
+    useEffect(() => {
+        if (graph.nodes.length === 0) {
+            forcesConfigured.current = false;
+        }
+    }, [graph.nodes.length]);
+
+    // Select node on click - no camera movement to avoid fighting with user controls
     const handleNodeClick = useCallback((node: GraphNode & { x?: number; y?: number; z?: number }) => {
         setSelectedNodeId(node.id);
-
-        // Smooth camera transition to node
-        if (graphRef.current && node.x !== undefined && node.y !== undefined && node.z !== undefined) {
-            const distance = 120;
-            const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-            graphRef.current.cameraPosition(
-                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-                { x: node.x, y: node.y, z: node.z },
-                800
-            );
-        }
     }, []);
 
     const handleNodeDoubleClick = useCallback((node: GraphNode) => {
@@ -372,26 +381,20 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                             linkColor={() => 'rgba(139, 92, 246, 0.4)'}
                             linkWidth={(link: { weight: number }) => Math.max(1, Math.min(4, link.weight * 0.5))}
                             linkOpacity={0.5}
-                            linkCurvature={0.2}
-                            linkDirectionalParticles={3}
-                            linkDirectionalParticleWidth={2}
-                            linkDirectionalParticleSpeed={0.006}
+                            linkCurvature={0.15}
+                            linkDirectionalParticles={2}
+                            linkDirectionalParticleWidth={1.5}
+                            linkDirectionalParticleSpeed={0.004}
                             linkDirectionalParticleColor={() => '#c4b5fd'}
                             backgroundColor="#0a0a0a"
                             showNavInfo={false}
                             enableNodeDrag={true}
                             enableNavigationControls={true}
-                            controlType="orbit"
-                            cooldownTime={4000}
-                            d3AlphaDecay={0.008}
-                            d3VelocityDecay={0.15}
-                            onEngineStop={() => {
-                                // Zoom in after layout stabilizes
-                                if (graphRef.current) {
-                                    graphRef.current.zoomToFit(600, 100);
-                                }
-                            }}
-                            warmupTicks={80}
+                            controlType="trackball"
+                            cooldownTime={2000}
+                            d3AlphaDecay={0.02}
+                            d3VelocityDecay={0.3}
+                            warmupTicks={50}
                         />
                     )}
 
