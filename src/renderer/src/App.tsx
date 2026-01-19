@@ -5,22 +5,49 @@ import { MemoryList } from './components/MemoryList';
 import { EntityList } from './components/EntityList';
 import { EntityGraph } from './components/EntityGraph';
 import { MemoryChat } from './components/MemoryChat';
-import { useState } from 'react';
+import { Onboarding } from './components/Onboarding';
+import { useState, useEffect } from 'react';
+import { StarsBackground } from './components/ui/stars-background';
+import { ShootingStars } from './components/ui/shooting-stars';
 
 const TABS = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'];
 type ViewMode = 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
 
 function App() {
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState<ViewMode>('chats');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
+  // Check onboarding status on mount
+  useEffect(() => {
+    const completed = localStorage.getItem('onboarding_completed') === 'true';
+    setHasCompletedOnboarding(completed);
+  }, []);
+
+  const handleOnboardingComplete = () => {
+    setHasCompletedOnboarding(true);
+  };
 
   const handleBack = () => {
     setSelectedSessionId(null);
   };
 
+  // Show loading state while checking onboarding status
+  if (hasCompletedOnboarding === null) {
+    return null;
+  }
+
+  // Show onboarding if not completed
+  if (!hasCompletedOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
   return (
     <div className="app-container" style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+      {/* Background effects */}
+                              <StarsBackground className="absolute inset-0" />
+                              <ShootingStars />
 
       {/* SIDEBAR NAVIGATION */}
       <div className="sidebar" style={{
