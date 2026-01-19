@@ -129,9 +129,9 @@ export function EntityList({ appName }: EntityListProps) {
     return (
         <div className="h-full flex gap-4">
             {/* Left panel - Entity list */}
-            <div className="w-[35%] min-w-[240px] flex flex-col">
+            <div className="w-[35%] min-w-[240px] flex flex-col gap-3">
                 {/* Type filter tabs */}
-                <div className="flex gap-2 mb-3 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
                     {typeTabs.map(type => (
                         <button
                             key={type}
@@ -148,7 +148,7 @@ export function EntityList({ appName }: EntityListProps) {
                 </div>
 
                 {/* Search */}
-                <div className="mb-3">
+                <div>
                     <div className="relative">
                         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

@@ -61,9 +61,9 @@ export function MemoryList({ appName }: MemoryListProps) {
     };
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col gap-4">
             {/* Sub-tabs */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2">
                 <button
                     onClick={() => setSubTab('memories')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -87,12 +87,12 @@ export function MemoryList({ appName }: MemoryListProps) {
             </div>
 
             {subTab === 'memories' ? (
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 flex flex-col overflow-hidden gap-4">
                     {/* Master Memory Section */}
                     <MasterMemory />
                     
                     {/* Search Bar */}
-                    <div className="mb-4">
+                    <div>
                         <div className="relative">
                             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

@@ -59,7 +59,7 @@ export class ScraperService {
       });
       
       // Timeout (longer for large chats)
-      const timeoutMs = 5000;
+      const timeoutMs = 20000;
       const timeout = setTimeout(() => {
           console.warn(`[Scraper] Timeout after ${timeoutMs}ms, returning partial output.`);
           child.kill();

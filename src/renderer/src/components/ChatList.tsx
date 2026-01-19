@@ -1,4 +1,10 @@
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
+import { BorderBeam } from './ui/border-beam';
 
 interface ChatSession {
     session_id: string;
@@ -10,6 +16,166 @@ interface ChatSession {
 interface ChatListProps {
     appName: string;
     onSelectSession: (sessionId: string) => void;
+}
+
+interface ChatListItemProps {
+    session: ChatSession;
+    formattedTime: string;
+    onSelect: (sessionId: string) => void;
+    onDelete: (e: React.MouseEvent, sessionId: string) => void;
+}
+
+function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListItemProps) {
+    const firstDashIndex = session.session_id.indexOf('-');
+    const modelName = firstDashIndex > 0 ? session.session_id.slice(0, firstDashIndex) : undefined;
+    const chatTitleRaw = firstDashIndex > 0 ? session.session_id.slice(firstDashIndex + 1) : session.session_id;
+    const chatTitle = chatTitleRaw.split('-').join(' ').toLowerCase();
+    const readableTitle = chatTitle
+        ? `${chatTitle.charAt(0).toUpperCase()}${chatTitle.slice(1)}`
+        : session.session_id;
+    const llmLabel = modelName ? modelName.replace(/[-_]/g, ' ') : 'LLM';
+    const markdownComponents = {
+        p: ({ children }: { children?: React.ReactNode }) => (
+            <p className="mb-3 last:mb-0 text-neutral-200">{children}</p>
+        ),
+        a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+            <a href={href} target="_blank" rel="noreferrer" className="text-cyan-300 underline">
+                {children}
+            </a>
+        ),
+        code: ({ inline, children }: { inline?: boolean; children?: React.ReactNode }) => (
+            <code
+                className={
+                    inline
+                        ? "rounded bg-white/10 px-1.5 py-0.5 text-[0.85em]"
+                        : "block whitespace-pre-wrap rounded-lg bg-white/10 p-3 text-[0.85em]"
+                }
+            >
+                {children}
+            </code>
+        ),
+        pre: ({ children }: { children?: React.ReactNode }) => (
+            <pre className="mb-3 overflow-x-auto">{children}</pre>
+        ),
+        ul: ({ children }: { children?: React.ReactNode }) => (
+            <ul className="mb-3 list-disc pl-6 text-neutral-200">{children}</ul>
+        ),
+        ol: ({ children }: { children?: React.ReactNode }) => (
+            <ol className="mb-3 list-decimal pl-6 text-neutral-200">{children}</ol>
+        ),
+        li: ({ children }: { children?: React.ReactNode }) => (
+            <li className="mb-1">{children}</li>
+        ),
+        strong: ({ children }: { children?: React.ReactNode }) => (
+            <strong className="font-semibold text-white">{children}</strong>
+        ),
+        em: ({ children }: { children?: React.ReactNode }) => (
+            <em className="text-neutral-300">{children}</em>
+        ),
+        blockquote: ({ children }: { children?: React.ReactNode }) => (
+            <blockquote className="mb-3 border-l-2 border-neutral-700 pl-4 text-neutral-300">
+                {children}
+            </blockquote>
+        ),
+        h1: ({ children }: { children?: React.ReactNode }) => (
+            <h1 className="mb-2 text-lg font-semibold text-white">{children}</h1>
+        ),
+        h2: ({ children }: { children?: React.ReactNode }) => (
+            <h2 className="mb-2 text-base font-semibold text-white">{children}</h2>
+        ),
+        h3: ({ children }: { children?: React.ReactNode }) => (
+            <h3 className="mb-2 text-sm font-semibold text-white">{children}</h3>
+        ),
+    };
+
+    return (
+        <Item
+            variant="outline"
+            className="group cursor-pointer hover:border-neutral-700"
+            onClick={() => onSelect(session.session_id)}
+        >
+            <ItemContent>
+                <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                        {llmLabel}
+                    </span>
+                    <ItemTitle>{readableTitle}</ItemTitle>
+                </div>
+            </ItemContent>
+
+            <ItemActions className="gap-3">
+                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                        {session.message_count} msgs
+                    </span>
+                    <span className="text-neutral-600">•</span>
+                    <span>{formattedTime}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {session.summary && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <Modal>
+                                <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.6"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-4 w-4"
+                                    >
+                                        <path d="M8 6h8" />
+                                        <path d="M8 10h8" />
+                                        <path d="M8 14h5" />
+                                        <path d="M6 3h9l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                                    </svg>
+                                </ModalTrigger>
+                                <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
+                                    <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
+                                        
+                                        
+                                        <div className="text-base font-semibold text-white">
+                                            {readableTitle} - Summary
+                                        </div>
+                                        <div className="mt-1 text-xs text-neutral-500">{llmLabel}</div>
+                                        <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+                                                {session.summary}
+                                            </ReactMarkdown>
+                                        </div>
+                                        <div className="mt-5 text-xs text-neutral-500">{session.session_id}</div>
+                                         <BorderBeam
+                                            duration={6}
+                                            size={400}
+                                            className="from-transparent via-red-500 to-transparent"
+                                        />
+                                        <BorderBeam
+                                            duration={6}
+                                            delay={3}
+                                            size={400}
+                                            borderWidth={2}
+                                            className="from-transparent via-blue-500 to-transparent"
+                                            />
+                                    </ModalContent>
+                                    
+                                </ModalBody>
+                            </Modal>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={(e) => onDelete(e, session.session_id)}
+                        className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
+                        title="Delete"
+                    >
+                        ×
+                    </button>
+                </div>
+            </ItemActions>
+        </Item>
+    );
 }
 
 export function ChatList({ appName, onSelectSession }: ChatListProps) {
@@ -56,13 +222,13 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
         // Or simpler: assume it is UTC and create Date.
         // Note: ' ' space in SQL string needs to be T for ISO sometimes.
         const iso = dateStr.replace(' ', 'T') + 'Z';
-        return new Date(iso).toLocaleString();
+        return new Date(iso).toLocaleString().substring(0, 16) + ' ' + new Date(iso).toLocaleString().substring(20, 22);
     };
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col gap-4">
             {/* Search Bar */}
-            <div className="mb-4">
+            <div>
                 <div className="relative">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -83,39 +249,18 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto space-y-3">
-                {filteredSessions.map(session => (
-                    <div
-                        key={session.session_id}
-                        onClick={() => onSelectSession(session.session_id)}
-                        className="group relative p-4 rounded-xl bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900/80 cursor-pointer transition-all"
-                    >
-                        <div className="flex items-start justify-between mb-2">
-                            <span className="px-2 py-1 text-xs font-medium rounded-lg bg-cyan-500/20 text-cyan-400">
-                                {session.message_count} msgs
-                            </span>
-                            <span className="text-xs text-neutral-500">{formatTime(session.last_activity)}</span>
-                        </div>
-
-                        <div className="font-medium text-white mb-2 pr-8 break-all">
-                            {session.session_id}
-                        </div>
-
-                        <button
-                            onClick={(e) => handleDelete(e, session.session_id)}
-                            className="absolute top-4 right-4 w-6 h-6 rounded-lg bg-neutral-800 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center"
-                            title="Delete"
-                        >
-                            ×
-                        </button>
-
-                        {session.summary && (
-                            <div className="mt-2 p-3 rounded-lg bg-neutral-800/50 text-sm text-neutral-400">
-                                <span className="font-medium text-neutral-300">Summary:</span> {session.summary}
-                            </div>
-                        )}
-                    </div>
-                ))}
+            <div className="flex-1 overflow-y-auto">
+                <ItemGroup>
+                    {filteredSessions.map(session => (
+                        <ChatListItem
+                            key={session.session_id}
+                            session={session}
+                            formattedTime={formatTime(session.last_activity)}
+                            onSelect={onSelectSession}
+                            onDelete={handleDelete}
+                        />
+                    ))}
+                </ItemGroup>
 
                 {!loading && filteredSessions.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
