@@ -88,7 +88,7 @@ export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
                 )}
 
                 {messages.map((msg, idx) => (
-                    <div key={idx} className={`mb-6 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div key={idx} className={`my-6 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                         <div className="text-xs text-neutral-500 mb-1">
                             {msg.role ? msg.role.toUpperCase() : 'UNKNOWN'}
                         </div>

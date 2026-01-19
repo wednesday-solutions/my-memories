@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import './base.css';
+@import "tailwindcss";
 
 @theme {
   --animate-spotlight: spotlight 2s ease .75s 1 forwards;

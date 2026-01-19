@@ -423,8 +423,8 @@ export function EntityGraph({ appName }: EntityGraphProps) {
             </div>
 
             {/* Details Panel - Fixed width */}
-            <div className="w-72 flex-shrink-0 overflow-y-auto flex flex-col gap-4">
-                <div className="relative rounded-xl border border-neutral-800 bg-neutral-900/80 backdrop-blur-xl p-6 overflow-hidden">
+            <div className="w-72 flex-shrink-0 h-full overflow-y-auto flex flex-col gap-4 pr-1">
+                <div className="relative rounded-xl border border-neutral-800 bg-neutral-900/80 backdrop-blur-xl p-6 overflow-hidden flex-shrink-0">
                     {selectedNode && (
                         <BorderBeam
                             size={180}
@@ -451,8 +451,6 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                                 <span
                                     className="inline-block px-3 py-1 rounded-full text-xs font-medium border"
                                     style={{
-                                        marginBottom: 4, 
-                                        marginTop: 4,
                                         backgroundColor: `${getTypeColor(selectedNode.type || 'Unknown')}20`,
                                         borderColor: `${getTypeColor(selectedNode.type || 'Unknown')}50`,
                                         color: getTypeColor(selectedNode.type || 'Unknown'),
@@ -461,7 +459,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                                     {selectedNode.type || 'Unknown'}
                                 </span>
 
-                                <div className="flex gap-4 text-xs" style={{marginBottom: 4, marginTop: 4}}>
+                                <div className="flex gap-4 text-xs" >
                                     <div className="flex items-center gap-1.5">
                                         <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
                                         <span className="text-neutral-400">{selectedNode.fact_count} facts</span>
@@ -485,9 +483,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                                 )}
 
                                 {selectedNode.facts && selectedNode.facts.length > 0 && (
-                                    <div
-                                    style={{marginBottom: 4, marginTop: 4}}
-                                    >
+                                    <div>
                                         <h4 className="text-xs font-medium text-neutral-400 mb-3 uppercase tracking-wide">
                                             Recent Facts
                                         </h4>
@@ -535,7 +531,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                 </div>
 
                 {/* Type Legend */}
-                <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/50">
+                <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/50 flex-shrink-0">
                     <h4 className="text-xs font-medium text-neutral-500 mb-3 uppercase tracking-wide">Entity Types</h4>
                     <div className="grid grid-cols-2 gap-2.5">
                         {Object.entries(typeColors).slice(0, 6).map(([type, color]) => (
