@@ -37,6 +37,38 @@ function App() {
     setHasCompletedOnboarding(completed);
   }, []);
 
+  // Handle browser URL changes
+  useEffect(() => {
+    const path = window.location.pathname;
+    const viewMap: Record<string, ViewMode> = {
+      '/chat': 'memory-chat',
+      '/chats': 'chats',
+      '/memories': 'memories',
+      '/entities': 'entities',
+      '/graph': 'graph'
+    };
+    
+    if (viewMap[path]) {
+      setViewMode(viewMap[path]);
+    }
+  }, []);
+
+  // Update browser URL when view mode changes
+  useEffect(() => {
+    const urlMap: Record<ViewMode, string> = {
+      'memory-chat': '/chat',
+      'chats': '/chats',
+      'memories': '/memories',
+      'entities': '/entities',
+      'graph': '/graph'
+    };
+    
+    const newPath = urlMap[viewMode];
+    if (window.location.pathname !== newPath) {
+      window.history.replaceState(null, '', newPath);
+    }
+  }, [viewMode]);
+
   const handleOnboardingComplete = () => {
     setHasCompletedOnboarding(true);
   };
