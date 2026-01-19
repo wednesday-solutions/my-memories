@@ -6,6 +6,7 @@ import { HoverBorderGradient } from './ui/hover-border-gradient';
 import { ShootingStars } from './ui/shooting-stars';
 import { StarsBackground } from './ui/stars-background';
 import { Spotlight } from './ui/spotlight';
+import { OrbitingCircles } from './ui/orbiting-circles';
 
 import { ArrowRight, Search, Check, Sparkles } from 'lucide-react';
 
@@ -25,6 +26,18 @@ const ClaudeIcon = ({ className }: { className?: string }) => (
 const GeminiIcon = ({ className }: { className?: string }) => (
     <svg role="img" viewBox="0 0 24 24" className={className} fill="currentColor">
         <path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/>
+    </svg>
+);
+
+const PerplexityIcon = ({ className }: { className?: string }) => (
+    <svg role="img" viewBox="0 0 24 24" className={className} fill="currentColor">
+        <path d="M22.3977 7.0896h-2.3106V.0676l-7.5094 6.3542V.1577h-1.1554v6.1966L4.4904 0v7.0896H1.6023v10.3976h2.8882V24l6.932-6.3591v6.2005h1.1554v-6.0469l6.9318 6.1807v-6.4879h2.8882V7.0896zm-3.4657-4.531v4.531h-5.355l5.355-4.531zm-13.2862.0676 4.8691 4.4634H5.6458V2.6262zM2.7576 16.332V8.245h7.8476l-6.1149 6.1147v1.9723H2.7576zm2.8882 5.0404v-3.8852h.0001v-2.6488l5.7763-5.7764v7.0111l-5.7764 5.2993zm12.7086.0248-5.7766-5.1509V9.0618l5.7766 5.7766v6.5588zm2.8882-5.0652h-1.733v-1.9723L13.3948 8.245h7.8478v8.087z"/>
+    </svg>
+);
+
+const GrokIcon = ({ className }: { className?: string }) => (
+    <svg role="img" viewBox="0 0 24 24" className={className} fill="currentColor">
+        <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>
     </svg>
 );
 
@@ -160,7 +173,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                             <motion.h2
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="text-4xl md:text-6xl lg:text-7xl font-bold text-center text-white"
+                                className="text-4xl md:text-6xl lg:text-7xl font-bold text-center text-white mb-4"
                             >
                                 Connect your{" "}
                                 <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">assistants</span>
@@ -170,51 +183,50 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 }}
-                                className="text-xl md:text-2xl mt-8 text-neutral-400 text-center"
+                                className="text-xl md:text-2xl text-neutral-400 text-center"
                             >
                                 Seamlessly import from
                                 <FlipWords 
-                                    words={['Claude', 'ChatGPT', 'Gemini', 'Perplexity']} 
+                                    words={['Claude', 'ChatGPT', 'Gemini', 'Perplexity', 'Grok']} 
                                     className="text-cyan-400 font-semibold"
                                 />
                             </motion.div>
                             
-                            {/* Feature cards */}
-                            <div className="grid grid-cols-3 gap-10 mt-20 max-w-3xl mx-auto">
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.2 }}
-                                    className="flex flex-col items-center gap-5 p-8 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 transition-colors"
-                                >
-                                    <div className="w-16 h-16 rounded-2xl bg-[#10A37F] flex items-center justify-center">
-                                        <OpenAIIcon className="w-9 h-9 text-white" />
+                            {/* Orbiting Circles */}
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.2, duration: 0.6 }}
+                                className="relative flex h-[420px] w-full max-w-[600px] items-center justify-center overflow-hidden mt-8"
+                            >
+                                {/* Center element - Your Memories hub */}
+                                <div className="absolute z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 shadow-2xl shadow-cyan-500/30">
+                                    <Sparkles className="h-10 w-10 text-white" />
+                                </div>
+                                
+                                {/* Inner orbit - 3 icons */}
+                                <OrbitingCircles radius={100} duration={25} iconSize={48}>
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#10A37F] shadow-lg shadow-[#10A37F]/30">
+                                        <OpenAIIcon className="h-6 w-6 text-white" />
                                     </div>
-                                    <span className="text-lg font-medium text-neutral-200">ChatGPT</span>
-                                </motion.div>
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="flex flex-col items-center gap-5 p-8 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 transition-colors"
-                                >
-                                    <div className="w-16 h-16 rounded-2xl bg-[#D4A27F] flex items-center justify-center">
-                                        <ClaudeIcon className="w-9 h-9 text-[#1A1915]" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#D4A27F] shadow-lg shadow-[#D4A27F]/30">
+                                        <ClaudeIcon className="h-6 w-6 text-[#1A1915]" />
                                     </div>
-                                    <span className="text-lg font-medium text-neutral-200">Claude</span>
-                                </motion.div>
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.4 }}
-                                    className="flex flex-col items-center gap-5 p-8 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 transition-colors"
-                                >
-                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
-                                        <GeminiIcon className="w-9 h-9 text-white" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-lg shadow-purple-500/30">
+                                        <GeminiIcon className="h-6 w-6 text-white" />
                                     </div>
-                                    <span className="text-lg font-medium text-neutral-200">Gemini</span>
-                                </motion.div>
-                            </div>
+                                </OrbitingCircles>
+                                
+                                {/* Outer orbit - 2 icons, reversed */}
+                                <OrbitingCircles radius={170} duration={30} reverse iconSize={48}>
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#22B8CD] shadow-lg shadow-[#22B8CD]/30">
+                                        <PerplexityIcon className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black border border-neutral-700 shadow-lg">
+                                        <GrokIcon className="h-6 w-6 text-white" />
+                                    </div>
+                                </OrbitingCircles>
+                            </motion.div>
                         </div>
                     </motion.div>
                 )}
