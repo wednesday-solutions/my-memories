@@ -22,13 +22,12 @@ export class ScraperService {
       let cmd = "";
       let args: string[] = [];
 
-      if (fs.existsSync(binPath)) {
+      if (app.isPackaged && fs.existsSync(binPath)) {
           cmd = binPath;
           args = [appName];
       } else {
-          // Fallback to script source
+          // In dev, prefer the Swift script to pick up latest changes
           cmd = "swift";
-          // Fix path if in dev
           const sourcePath = app.isPackaged 
             ? path.join(process.resourcesPath, "scripts", "text-extractor.swift")
             : path.join(process.cwd(), "scripts", "text-extractor.swift");

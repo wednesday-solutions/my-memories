@@ -417,6 +417,174 @@ export class Watcher {
        return { messages, chatTitle, windowTitle, browserUrl };
    }
 
+   // Parse output for Gemini Web
+   private static parseGeminiOutput(text: string): { 
+       messages: { role: string, content: string, timestamp?: string }[],
+       chatTitle?: string,
+       windowTitle?: string,
+       browserUrl?: string
+   } {
+       const messages: { role: string, content: string, timestamp?: string }[] = [];
+       const lines = text.split('\n');
+       
+       let currentRole = "";
+       let currentContent: string[] = [];
+       let lastTimestamp = "";
+       let chatTitle: string | undefined;
+       let windowTitle: string | undefined;
+       let browserUrl: string | undefined;
+
+       const isNoiseLine = (value: string) => {
+           const lower = value.toLowerCase();
+           if (!lower) return true;
+           const literals = [
+               'gemini',
+               'chats',
+               'new chat',
+               'chat history',
+               'history',
+               'recent',
+               'settings',
+               'help',
+               'feedback',
+               'privacy',
+               'terms',
+               'apps',
+               'extensions',
+               'upload',
+               'send',
+               'stop',
+               'regenerate',
+               'share',
+               'export',
+               'sign in',
+               'signed out',
+               'gemini can make mistakes, so double-check it',
+               'show thinking',
+               'hide thinking',
+               'improve',
+               'reports',
+               'critique',
+               'write',
+               'focus'
+           ];
+           if (literals.includes(lower)) return true;
+           if (lower.startsWith('gemini.google.com/')) return true;
+           if (lower.startsWith('bard.google.com/')) return true;
+           return false;
+       };
+
+       const detectRoleLabel = (value: string): { role: 'user' | 'assistant'; remainder?: string } | null => {
+           const lower = value.toLowerCase();
+           const labels: Array<{ label: string; role: 'user' | 'assistant' }> = [
+               { label: 'you', role: 'user' },
+               { label: 'you:', role: 'user' },
+               { label: 'user:', role: 'user' },
+               { label: 'gemini', role: 'assistant' },
+               { label: 'gemini:', role: 'assistant' },
+               { label: 'assistant:', role: 'assistant' }
+           ];
+
+           for (const entry of labels) {
+               if (lower === entry.label) {
+                   return { role: entry.role };
+               }
+               if (lower.startsWith(entry.label + ' ')) {
+                   const remainder = value.slice(entry.label.length).trim();
+                   return { role: entry.role, remainder };
+               }
+           }
+
+           return null;
+       };
+
+       const commitCurrent = () => {
+           if (currentRole && currentContent.length > 0) {
+               const content = currentContent.join('\n').trim();
+               if (content && !isNoiseLine(content)) {
+                   messages.push({ 
+                       role: currentRole, 
+                       content,
+                       timestamp: lastTimestamp
+                   });
+               }
+           }
+       };
+
+       for (const line of lines) {
+           const trimmed = line.trim();
+           const lineWithoutTag = trimmed.replace(/^\[.*?\]\s*/, '').trim();
+           const roleLabel = detectRoleLabel(lineWithoutTag);
+           if (roleLabel) {
+               commitCurrent();
+               currentRole = roleLabel.role;
+               currentContent = [];
+               if (roleLabel.remainder && !isNoiseLine(roleLabel.remainder)) {
+                   currentContent.push(roleLabel.remainder);
+               }
+               continue;
+           }
+           
+           // Extract titles
+           if (trimmed.startsWith("[WINDOW_TITLE]")) {
+               windowTitle = trimmed.replace("[WINDOW_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[BROWSER_URL]")) {
+               browserUrl = trimmed.replace("[BROWSER_URL]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[CHAT_TITLE]")) {
+               chatTitle = trimmed.replace("[CHAT_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[TITLE]")) {
+               // Skip generic headers/titles so they don't get appended to messages
+               continue;
+           }
+           
+           if (trimmed.startsWith("[METADATA]")) {
+               const timeStr = trimmed.replace("[METADATA]", "").trim();
+               if (timeStr.match(/\d{1,2}:\d{2}/)) {
+                   lastTimestamp = timeStr;
+               }
+               continue;
+           }
+
+           // Detect Semantic Roles
+           if (trimmed.startsWith("[USER]")) {
+               const nextContent = trimmed.replace("[USER]", "").trim();
+               if (currentRole === "user") {
+                   if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "user";
+                   currentContent = nextContent && !isNoiseLine(nextContent) ? [nextContent] : [];
+               }
+           } 
+           else if (trimmed.startsWith("[ASSISTANT]")) {
+               const nextContent = trimmed.replace("[ASSISTANT]", "").trim();
+               if (currentRole === "assistant") {
+                   if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "assistant";
+                   currentContent = nextContent && !isNoiseLine(nextContent) ? [nextContent] : [];
+               }
+           }
+           // Handle continuation
+           else if (currentRole) {
+               const cleanLine = trimmed.replace(/^\[.*?\]/, "").trim();
+               if (cleanLine && !isNoiseLine(cleanLine)) currentContent.push(cleanLine);
+           }
+       }
+       
+       // flush last
+       commitCurrent();
+
+       return { messages, chatTitle, windowTitle, browserUrl };
+   }
+
   private static extractBrowserUrl(text: string): string | undefined {
       const lines = text.split('\n');
       for (const line of lines) {
@@ -471,6 +639,20 @@ export class Watcher {
       }
   }
 
+  private static isGeminiDomain(url: string): boolean {
+      const raw = (url || '').trim();
+      if (!raw) return false;
+
+      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      try {
+          const hostname = new URL(withScheme).hostname.toLowerCase();
+          return hostname === 'gemini.google.com' || hostname.endsWith('.gemini.google.com') || hostname === 'bard.google.com' || hostname.endsWith('.bard.google.com');
+      } catch {
+          const lower = raw.toLowerCase();
+          return /(^|\/|\.|:)gemini\.google\.com(\/|$)/i.test(lower) || /(^|\/|\.|:)bard\.google\.com(\/|$)/i.test(lower);
+      }
+  }
+
   private static async handleVisionCapture(appName: string, title?: string) {
       const isClaudeDesktop = appName.toLowerCase().includes("claude");
       const isBrowser = this.isBrowserApp(appName);
@@ -504,6 +686,7 @@ export class Watcher {
     const browserUrl = this.extractBrowserUrl(extractedText);
       const isClaudeBrowser = isBrowser && !!browserUrl && this.isClaudeDomain(browserUrl);
       const isChatGPTBrowser = isBrowser && !!browserUrl && this.isChatGPTDomain(browserUrl);
+    const isGeminiBrowser = isBrowser && !!browserUrl && this.isGeminiDomain(browserUrl);
 
       if (isBrowser && isClaudeBrowser) {
           await this.handleClaudeWebCapture(appName, title, extractedText);
@@ -515,7 +698,12 @@ export class Watcher {
           return;
       }
 
-      if (isBrowser && !isClaudeBrowser && !isChatGPTBrowser) {
+      if (isBrowser && isGeminiBrowser) {
+          await this.handleGeminiCapture(appName, title, extractedText);
+          return;
+      }
+
+      if (isBrowser && !isClaudeBrowser && !isChatGPTBrowser && !isGeminiBrowser) {
           return;
       }
 
@@ -573,6 +761,58 @@ export class Watcher {
           console.log(`Watcher: ChatGPT parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("ChatGPT", effectiveTitle, parsedMessages);
       }
+  }
+
+  private static async handleGeminiCapture(appName: string, title: string | undefined, extractedText: string) {
+      const parsedResult = this.parseGeminiOutput(extractedText);
+      const parsedMessages = parsedResult.messages;
+      const chatTitle = parsedResult.chatTitle;
+
+      if (parsedMessages.length > 0) {
+          const derivedTitle = this.deriveGeminiTitleFromMessages(parsedMessages);
+          const effectiveTitle = this.sanitizeGeminiTitle(chatTitle)
+              || this.sanitizeGeminiTitle(derivedTitle)
+              || this.sanitizeGeminiTitle(parsedResult.windowTitle)
+              || this.sanitizeGeminiTitle(title)
+              || "Untitled Chat";
+          console.log(`Watcher: Gemini parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
+          await this.saveConversationToDB("Gemini", effectiveTitle, parsedMessages);
+      }
+  }
+
+  private static deriveGeminiTitleFromMessages(messages: { role: string, content: string }[]): string | undefined {
+      const assistant = messages.find(m => m.role.toLowerCase() === 'assistant' && m.content);
+      if (!assistant) return undefined;
+      const firstLine = assistant.content.split(/\n+/)[0]?.trim();
+      if (!firstLine) return undefined;
+      const cleaned = firstLine.replace(/\s+/g, ' ').slice(0, 80).trim();
+      return cleaned || undefined;
+  }
+
+  private static sanitizeGeminiTitle(value: string | undefined): string | undefined {
+      if (!value) return undefined;
+      let cleaned = value.replace(/\s*[\-|•|\|]\s*gemini.*$/i, '').trim();
+      cleaned = cleaned.replace(/^gemini\s*[-:]\s*/i, '').trim();
+      if (!cleaned) return undefined;
+      if (this.isLikelyGeminiPrompt(cleaned)) return undefined;
+      return cleaned;
+  }
+
+  private static isLikelyGeminiPrompt(value: string): boolean {
+      const lower = value.toLowerCase();
+      if (lower.includes('?')) return true;
+      if (lower.endsWith('.')) return true;
+      if (lower.length > 120) return true;
+      if (lower.split(/\s+/).length > 12) return true;
+      const promptPhrases = [
+          'would you like to',
+          'how can i assist',
+          'how can i help',
+          'what can i help',
+          'can i help you',
+          'start a new draft'
+      ];
+      return promptPhrases.some(phrase => lower.includes(phrase));
   }
 
   // Refactored Helper - Divergence Point Deduplication
