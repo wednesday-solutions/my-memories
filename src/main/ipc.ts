@@ -71,6 +71,117 @@ function clipText(text: string, maxLength: number): string {
     return text.slice(0, Math.max(0, maxLength - 1)) + '…';
 }
 
+function isTrivialMessage(text: string): boolean {
+    const normalized = (text || '').trim();
+    if (normalized.length === 0) return true;
+    if (normalized.length < 20) {
+        if (/^(hi|hello|hey|thanks|thank you|ok|okay|sure|yes|no|cool|great|nice|good|fine|bye|see ya|yep|nope)[!.]?$/i.test(normalized)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function insertMemoryRecord(params: {
+    content: string;
+    rawText?: string | null;
+    sourceApp?: string | null;
+    sessionId?: string | null;
+    messageId?: number | null;
+}): Promise<number | null> {
+    const db = getDB();
+    const content = (params.content || '').trim();
+    if (!content) return null;
+
+    if (params.messageId) {
+        const existing = db.prepare('SELECT id FROM memories WHERE message_id = ? LIMIT 1').get(params.messageId) as { id: number } | undefined;
+        if (existing?.id) return existing.id;
+    }
+
+    if (params.sessionId) {
+        const existing = db.prepare('SELECT id FROM memories WHERE session_id = ? AND content = ? LIMIT 1').get(params.sessionId, content) as { id: number } | undefined;
+        if (existing?.id) return existing.id;
+    }
+
+    let vectorJson = '[]';
+    try {
+        const vector = await embeddings.generateEmbedding(content);
+        vectorJson = JSON.stringify(vector);
+    } catch (e) {
+        console.error('Failed to generate embedding for memory record:', e);
+    }
+
+    const stmt = db.prepare('INSERT INTO memories (content, raw_text, source_app, session_id, embedding, message_id) VALUES (?, ?, ?, ?, ?, ?)');
+    const info = stmt.run(
+        content,
+        params.rawText || null,
+        params.sourceApp || null,
+        params.sessionId || null,
+        vectorJson,
+        params.messageId || null
+    );
+    return Number(info.lastInsertRowid || 0) || null;
+}
+
+export async function evaluateAndStoreMemoryForMessage(params: {
+    sessionId: string;
+    appName: string;
+    role: string;
+    content: string;
+    messageId?: number | null;
+}): Promise<void> {
+    const role = (params.role || 'unknown').toLowerCase();
+    const text = (params.content || '').trim();
+    if (!text || isTrivialMessage(text)) return;
+
+    const prompt = `You are a memory filter. Decide if the following single message should be saved as long-term memory.
+
+Store ONLY durable, useful information such as:
+- Stable personal preferences or profile facts
+- Project details, specs, or requirements
+- Decisions made or commitments
+- Important instructions or constraints
+- Long-term plans or schedules
+- Key factual statements about entities or systems
+
+Do NOT store:
+- Greetings, small talk, or pleasantries
+- Generic troubleshooting steps or ephemeral details
+- Redundant or obvious facts
+- Speculation or unverified claims
+
+If the role is 'assistant', store only if it contains verified facts stated by the user or decisions made by the user.
+
+Return JSON ONLY with this shape:
+{
+  "store": boolean,
+  "memory": "short standalone statement suitable for future retrieval"
+}
+
+Role: ${role}
+Message: ${text}
+JSON:`;
+
+    try {
+        const { llm } = await import('./llm');
+        const response = await llm.chat(prompt);
+        const parsed = safeParseJson<{ store: boolean; memory?: string }>(response, { store: false });
+        if (!parsed.store) return;
+        const memoryText = (parsed.memory || '').trim();
+        if (!memoryText) return;
+
+        await insertMemoryRecord({
+            content: memoryText,
+            rawText: text,
+            sourceApp: params.appName,
+            sessionId: params.sessionId,
+            messageId: params.messageId || null
+        });
+    } catch (e) {
+        console.error('[IPC] Memory evaluation failed:', e);
+    }
+}
+
 async function extractEntitiesForSession(sessionId: string): Promise<void> {
     const memories = getMemoriesForSession(sessionId);
     if (!memories || memories.length === 0) return;

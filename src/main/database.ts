@@ -70,6 +70,7 @@ export function getDB() {
       raw_text TEXT, 
       source_app TEXT,
       session_id TEXT, 
+      message_id INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       embedding TEXT 
     );
@@ -248,6 +249,15 @@ export function getDB() {
   } catch (e) {
     // Column already exists, ignore
   }
+
+  // Migration: Add message_id column to memories if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE memories ADD COLUMN message_id INTEGER`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  db.exec('CREATE INDEX IF NOT EXISTS idx_memories_message_id ON memories(message_id)');
 
   return db;
 }

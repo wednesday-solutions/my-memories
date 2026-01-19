@@ -72,11 +72,12 @@ export class Watcher {
   private static CAPTURE_INTERVAL = 30000; // 30s
   private static lastTitle: string = "";
 
-   // Parse the custom output from text-extractor.swift
-   private static parseAccessibilityOutput(text: string): { 
+   // Parse output for Claude Desktop
+   private static parseClaudeDesktopOutput(text: string): { 
        messages: { role: string, content: string, timestamp?: string }[],
        chatTitle?: string,
-       windowTitle?: string 
+       windowTitle?: string,
+       browserUrl?: string
    } {
        const messages: { role: string, content: string, timestamp?: string }[] = [];
        const lines = text.split('\n');
@@ -86,6 +87,17 @@ export class Watcher {
        let lastTimestamp = "";
        let chatTitle: string | undefined;
        let windowTitle: string | undefined;
+       let browserUrl: string | undefined;
+
+       const commitCurrent = () => {
+           if (currentRole && currentContent.length > 0) {
+               messages.push({ 
+                   role: currentRole, 
+                   content: currentContent.join('\n').trim(),
+                   timestamp: lastTimestamp
+               });
+           }
+       };
 
        for (const line of lines) {
            const trimmed = line.trim();
@@ -95,8 +107,16 @@ export class Watcher {
                windowTitle = trimmed.replace("[WINDOW_TITLE]", "").trim();
                continue;
            }
+           if (trimmed.startsWith("[BROWSER_URL]")) {
+               browserUrl = trimmed.replace("[BROWSER_URL]", "").trim();
+               continue;
+           }
            if (trimmed.startsWith("[CHAT_TITLE]")) {
                chatTitle = trimmed.replace("[CHAT_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[TITLE]")) {
+               // Skip generic headers/titles so they don't get appended to messages
                continue;
            }
            
@@ -110,26 +130,24 @@ export class Watcher {
 
            // Detect Semantic Roles
            if (trimmed.startsWith("[USER]")) {
-               if (currentRole && currentContent.length > 0) {
-                   messages.push({ 
-                       role: currentRole, 
-                       content: currentContent.join('\n').trim(),
-                       timestamp: lastTimestamp
-                   });
+               const nextContent = trimmed.replace("[USER]", "").trim();
+               if (currentRole === "user") {
+                   if (nextContent) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "user";
+                   currentContent = nextContent ? [nextContent] : [];
                }
-               currentRole = "user";
-               currentContent = [trimmed.replace("[USER]", "").trim()];
            } 
            else if (trimmed.startsWith("[ASSISTANT]")) {
-               if (currentRole && currentContent.length > 0) {
-                   messages.push({ 
-                       role: currentRole, 
-                       content: currentContent.join('\n').trim(),
-                       timestamp: lastTimestamp 
-                   });
+               const nextContent = trimmed.replace("[ASSISTANT]", "").trim();
+               if (currentRole === "assistant") {
+                   if (nextContent) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "assistant";
+                   currentContent = nextContent ? [nextContent] : [];
                }
-               currentRole = "assistant";
-               currentContent = [trimmed.replace("[ASSISTANT]", "").trim()];
            }
            // Handle continuation
            else if (currentRole) {
@@ -139,58 +157,375 @@ export class Watcher {
        }
        
        // flush last
-       if (currentRole && currentContent.length > 0) {
-           messages.push({ 
-               role: currentRole, 
-               content: currentContent.join('\n').trim(),
-               timestamp: lastTimestamp 
-           });
-       }
+       commitCurrent();
 
-       return { messages, chatTitle, windowTitle };
+       return { messages, chatTitle, windowTitle, browserUrl };
    }
 
-  private static async handleVisionCapture(appName: string, title?: string) {
-       // Only support Claude for now as requested
-       if (!appName.toLowerCase().includes("claude")) return;
-
-       const now = Date.now();
+   // Parse output for Claude Web
+   private static parseClaudeWebOutput(text: string): { 
+       messages: { role: string, content: string, timestamp?: string }[],
+       chatTitle?: string,
+       windowTitle?: string,
+       browserUrl?: string
+   } {
+       const messages: { role: string, content: string, timestamp?: string }[] = [];
+       const lines = text.split('\n');
        
-       // Debounce
-       const titleChanged = title && title !== this.lastTitle;
-       if (!titleChanged && (now - this.lastCaptureTime < this.CAPTURE_INTERVAL)) return;
+       let currentRole = "";
+       let currentContent: string[] = [];
+       let lastTimestamp = "";
+       let chatTitle: string | undefined;
+       let windowTitle: string | undefined;
+       let browserUrl: string | undefined;
 
-       this.lastCaptureTime = now;
-       if (title) this.lastTitle = title;
-       
-       console.log(`Watcher: Triggering Vision Capture for ${appName} (Title: ${title})`);
-       
-       // 1. Extract Text First (Code-based Strategy)
-       const { scraper } = await import("./scraper");
-       let extractedText = "";
-       try {
-           extractedText = await scraper.getText(appName);
-       } catch(e) { console.warn("Text extraction failed", e); }
+       const commitCurrent = () => {
+           if (currentRole && currentContent.length > 0) {
+               messages.push({ 
+                   role: currentRole, 
+                   content: currentContent.join('\n').trim(),
+                   timestamp: lastTimestamp
+               });
+           }
+       };
 
-       const parsedResult = this.parseAccessibilityOutput(extractedText);
-       const parsedMessages = parsedResult.messages;
-       const chatTitle = parsedResult.chatTitle;
-       const isDirectChat = parsedMessages.length > 0;
+       for (const line of lines) {
+           const trimmed = line.trim();
+           
+           // Extract titles
+           if (trimmed.startsWith("[WINDOW_TITLE]")) {
+               windowTitle = trimmed.replace("[WINDOW_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[BROWSER_URL]")) {
+               browserUrl = trimmed.replace("[BROWSER_URL]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[CHAT_TITLE]")) {
+               chatTitle = trimmed.replace("[CHAT_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[TITLE]")) {
+               // Skip generic headers/titles so they don't get appended to messages
+               continue;
+           }
+           
+           if (trimmed.startsWith("[METADATA]")) {
+               const timeStr = trimmed.replace("[METADATA]", "").trim();
+               if (timeStr.match(/\d{1,2}:\d{2}/)) {
+                   lastTimestamp = timeStr;
+               }
+               continue;
+           }
 
-       if (isDirectChat) {
-            const effectiveTitle = chatTitle || title || "Untitled Chat";
-            console.log(`Watcher: Direct Parse Success! Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
-            await this.saveConversationToDB(appName, effectiveTitle, parsedMessages);
-            return; 
+           // Detect Semantic Roles
+           if (trimmed.startsWith("[USER]")) {
+               const nextContent = trimmed.replace("[USER]", "").trim();
+               if (currentRole === "user") {
+                   if (nextContent) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "user";
+                   currentContent = nextContent ? [nextContent] : [];
+               }
+           } 
+           else if (trimmed.startsWith("[ASSISTANT]")) {
+               const nextContent = trimmed.replace("[ASSISTANT]", "").trim();
+               if (currentRole === "assistant") {
+                   if (nextContent) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "assistant";
+                   currentContent = nextContent ? [nextContent] : [];
+               }
+           }
+           // Handle continuation
+           else if (currentRole) {
+               const cleanLine = trimmed.replace(/^\[.*?\]/, "").trim();
+               if (cleanLine) currentContent.push(cleanLine);
+           }
        }
+       
+       // flush last
+       commitCurrent();
 
-       // 2. Fallback to Vision LLM if direct parsing failed (e.g. no accessibility classes found)
-       console.log("Watcher: Direct parse failed (no semantic tags). Falling back to Vision LLM.");
+       return { messages, chatTitle, windowTitle, browserUrl };
+   }
+
+   // Parse output for ChatGPT Web
+   private static parseChatGPTOutput(text: string): { 
+       messages: { role: string, content: string, timestamp?: string }[],
+       chatTitle?: string,
+       windowTitle?: string,
+       browserUrl?: string
+   } {
+       const messages: { role: string, content: string, timestamp?: string }[] = [];
+       const lines = text.split('\n');
        
-       const imagePath = await vision.captureAppWindow(appName, title);
+       let currentRole = "";
+       let currentContent: string[] = [];
+       let lastTimestamp = "";
+       let chatTitle: string | undefined;
+       let windowTitle: string | undefined;
+       let browserUrl: string | undefined;
+
+       const isNoiseLine = (value: string) => {
+           const lower = value.toLowerCase();
+           if (!lower) return true;
+           const literals = [
+               'chat history',
+               'search chats',
+               'images',
+               'apps',
+               'projects',
+               'gpts',
+               'explore gpts',
+               'your chats',
+               'new chat',
+               'share',
+               'skip to content',
+               'settings',
+               'help',
+               'account',
+               'upgrade',
+               'plans',
+               'billing',
+               'log out',
+                'logout',
+                'chatgpt can make mistakes. check important info.',
+                'cookie preferences',
+                'improve',
+                'reports',
+                'critique',
+                'write',
+                'focus'
+           ];
+           if (literals.includes(lower)) return true;
+           if (/^chatgpt\s*\d/.test(lower)) return true;
+           if (lower.startsWith('chatgpt.com/')) return true;
+           if (lower.startsWith('chat.openai.com/')) return true;
+           return false;
+       };
+
+       const detectRoleLabel = (value: string): { role: 'user' | 'assistant'; remainder?: string } | null => {
+           const lower = value.toLowerCase();
+           const labels: Array<{ label: string; role: 'user' | 'assistant' }> = [
+               { label: 'you said:', role: 'user' },
+               { label: 'you:', role: 'user' },
+               { label: 'chatgpt said:', role: 'assistant' },
+               { label: 'chatgpt:', role: 'assistant' },
+               { label: 'assistant:', role: 'assistant' }
+           ];
+
+           for (const entry of labels) {
+               if (lower === entry.label) {
+                   return { role: entry.role };
+               }
+               if (lower.startsWith(entry.label + ' ')) {
+                   const remainder = value.slice(entry.label.length).trim();
+                   return { role: entry.role, remainder };
+               }
+           }
+
+           return null;
+       };
+
+       const commitCurrent = () => {
+           if (currentRole && currentContent.length > 0) {
+               const content = currentContent.join('\n').trim();
+               if (content && !isNoiseLine(content)) {
+                   messages.push({ 
+                       role: currentRole, 
+                       content,
+                       timestamp: lastTimestamp
+                   });
+               }
+           }
+       };
+
+       for (const line of lines) {
+           const trimmed = line.trim();
+           const lineWithoutTag = trimmed.replace(/^\[.*?\]\s*/, '').trim();
+           const roleLabel = detectRoleLabel(lineWithoutTag);
+           if (roleLabel) {
+               commitCurrent();
+               currentRole = roleLabel.role;
+               currentContent = [];
+               if (roleLabel.remainder && !isNoiseLine(roleLabel.remainder)) {
+                   currentContent.push(roleLabel.remainder);
+               }
+               continue;
+           }
+           
+           // Extract titles
+           if (trimmed.startsWith("[WINDOW_TITLE]")) {
+               windowTitle = trimmed.replace("[WINDOW_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[BROWSER_URL]")) {
+               browserUrl = trimmed.replace("[BROWSER_URL]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[CHAT_TITLE]")) {
+               chatTitle = trimmed.replace("[CHAT_TITLE]", "").trim();
+               continue;
+           }
+           if (trimmed.startsWith("[TITLE]")) {
+               // Skip generic headers/titles so they don't get appended to messages
+               continue;
+           }
+           
+           if (trimmed.startsWith("[METADATA]")) {
+               const timeStr = trimmed.replace("[METADATA]", "").trim();
+               if (timeStr.match(/\d{1,2}:\d{2}/)) {
+                   lastTimestamp = timeStr;
+               }
+               continue;
+           }
+
+           // Detect Semantic Roles
+           if (trimmed.startsWith("[USER]")) {
+               const nextContent = trimmed.replace("[USER]", "").trim();
+               if (currentRole === "user") {
+                   if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "user";
+                   currentContent = nextContent && !isNoiseLine(nextContent) ? [nextContent] : [];
+               }
+           } 
+           else if (trimmed.startsWith("[ASSISTANT]")) {
+               const nextContent = trimmed.replace("[ASSISTANT]", "").trim();
+               if (currentRole === "assistant") {
+                   if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
+               } else {
+                   commitCurrent();
+                   currentRole = "assistant";
+                   currentContent = nextContent && !isNoiseLine(nextContent) ? [nextContent] : [];
+               }
+           }
+           // Handle continuation
+           else if (currentRole) {
+               const cleanLine = trimmed.replace(/^\[.*?\]/, "").trim();
+               if (cleanLine && !isNoiseLine(cleanLine)) currentContent.push(cleanLine);
+           }
+       }
        
-       if (imagePath) {
-           try {
+       // flush last
+       commitCurrent();
+
+       return { messages, chatTitle, windowTitle, browserUrl };
+   }
+
+  private static extractBrowserUrl(text: string): string | undefined {
+      const lines = text.split('\n');
+      for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("[BROWSER_URL]")) {
+              return trimmed.replace("[BROWSER_URL]", "").trim() || undefined;
+          }
+      }
+      return undefined;
+  }
+
+  private static isBrowserApp(appName: string): boolean {
+      const name = (appName || '').toLowerCase();
+      return [
+          'chrome',
+          'google chrome',
+          'brave',
+          'arc',
+          'safari',
+          'firefox',
+          'edge',
+          'microsoft edge',
+          'opera'
+      ].some(token => name.includes(token));
+  }
+
+  private static isClaudeDomain(url: string): boolean {
+      const raw = (url || '').trim();
+      if (!raw) return false;
+
+      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      try {
+          const hostname = new URL(withScheme).hostname.toLowerCase();
+          return hostname === 'claude.ai' || hostname.endsWith('.claude.ai');
+      } catch {
+          const lower = raw.toLowerCase();
+          return /(^|\/|\.|:)claude\.ai(\/|$)/i.test(lower);
+      }
+  }
+
+  private static isChatGPTDomain(url: string): boolean {
+      const raw = (url || '').trim();
+      if (!raw) return false;
+
+      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      try {
+          const hostname = new URL(withScheme).hostname.toLowerCase();
+          return hostname === 'chatgpt.com' || hostname.endsWith('.chatgpt.com') || hostname === 'chat.openai.com' || hostname.endsWith('.chat.openai.com');
+      } catch {
+          const lower = raw.toLowerCase();
+          return /(^|\/|\.|:)chatgpt\.com(\/|$)/i.test(lower) || /(^|\/|\.|:)chat\.openai\.com(\/|$)/i.test(lower);
+      }
+  }
+
+  private static async handleVisionCapture(appName: string, title?: string) {
+      const isClaudeDesktop = appName.toLowerCase().includes("claude");
+      const isBrowser = this.isBrowserApp(appName);
+      // Only support Claude desktop or supported browser-based chat domains
+      if (!isClaudeDesktop && !isBrowser) return;
+
+      const now = Date.now();
+      
+      // Debounce
+      const titleChanged = title && title !== this.lastTitle;
+      if (!titleChanged && (now - this.lastCaptureTime < this.CAPTURE_INTERVAL)) return;
+
+      this.lastCaptureTime = now;
+      if (title) this.lastTitle = title;
+      
+      console.log(`Watcher: Triggering Vision Capture for ${appName} (Title: ${title})`);
+      
+      // 1. Extract Text First (Code-based Strategy)
+      const { scraper } = await import("./scraper");
+      let extractedText = "";
+      try {
+          extractedText = await scraper.getText(appName);
+      } catch(e) { console.warn("Text extraction failed", e); }
+
+      // Route by app/domain so each flow is isolated
+      if (isClaudeDesktop) {
+          await this.handleClaudeDesktopCapture(appName, title, extractedText);
+          return;
+      }
+
+    const browserUrl = this.extractBrowserUrl(extractedText);
+      const isClaudeBrowser = isBrowser && !!browserUrl && this.isClaudeDomain(browserUrl);
+      const isChatGPTBrowser = isBrowser && !!browserUrl && this.isChatGPTDomain(browserUrl);
+
+      if (isBrowser && isClaudeBrowser) {
+          await this.handleClaudeWebCapture(appName, title, extractedText);
+          return;
+      }
+
+      if (isBrowser && isChatGPTBrowser) {
+          await this.handleChatGPTCapture(appName, title, extractedText);
+          return;
+      }
+
+      if (isBrowser && !isClaudeBrowser && !isChatGPTBrowser) {
+          return;
+      }
+
+      // 2. Fallback to Vision LLM if direct parsing failed (e.g. no accessibility classes found)
+      console.log("Watcher: Direct parse failed (no semantic tags). Falling back to Vision LLM.");
+      
+      const imagePath = await vision.captureAppWindow(appName, title);
+      
+      if (imagePath) {
+          try {
               // LLM Fallback Temporarily Disabled to prioritize Direct Parsing reliability
               // const { llm } = await import('./llm');
               // const prompt = `...`;
@@ -198,10 +533,46 @@ export class Watcher {
               // For now, simple log
               console.log("Watcher: Vision captured, but LLM extraction path is paused in favor of direct accessibility extraction.");
               
-           } catch(e) {
-               console.error("Vision Fallback Failed", e);
-           }
-       }
+          } catch(e) {
+              console.error("Vision Fallback Failed", e);
+          }
+      }
+  }
+
+  private static async handleClaudeDesktopCapture(appName: string, title: string | undefined, extractedText: string) {
+      const parsedResult = this.parseClaudeDesktopOutput(extractedText);
+      const parsedMessages = parsedResult.messages;
+      const chatTitle = parsedResult.chatTitle;
+
+      if (parsedMessages.length > 0) {
+          const effectiveTitle = chatTitle || title || "Untitled Chat";
+          console.log(`Watcher: Claude Desktop parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
+          await this.saveConversationToDB(appName, effectiveTitle, parsedMessages);
+      }
+  }
+
+  private static async handleClaudeWebCapture(appName: string, title: string | undefined, extractedText: string) {
+      const parsedResult = this.parseClaudeWebOutput(extractedText);
+      const parsedMessages = parsedResult.messages;
+      const chatTitle = parsedResult.chatTitle;
+
+      if (parsedMessages.length > 0) {
+          const effectiveTitle = chatTitle || title || "Untitled Chat";
+          console.log(`Watcher: Claude Web parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
+          await this.saveConversationToDB("Claude.ai", effectiveTitle, parsedMessages);
+      }
+  }
+
+  private static async handleChatGPTCapture(appName: string, title: string | undefined, extractedText: string) {
+      const parsedResult = this.parseChatGPTOutput(extractedText);
+      const parsedMessages = parsedResult.messages;
+      const chatTitle = parsedResult.chatTitle;
+
+      if (parsedMessages.length > 0) {
+          const effectiveTitle = chatTitle || title || "Untitled Chat";
+          console.log(`Watcher: ChatGPT parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
+          await this.saveConversationToDB("ChatGPT", effectiveTitle, parsedMessages);
+      }
   }
 
   // Refactored Helper - Divergence Point Deduplication
@@ -278,21 +649,48 @@ export class Watcher {
 
         // Insert only new messages starting from divergence point
         let inserted = 0;
-        for (let i = insertStartIndex; i < messages.length; i++) {
+        const insertedMessages: { id: number; role: string; content: string; timestamp?: string | null }[] = [];
+        const insertStmt = db.prepare('INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)');
 
+        for (let i = insertStartIndex; i < messages.length; i++) {
             const msg = messages[i];
             const role = msg.role.toLowerCase();
             const text = msg.content;
             const timestamp = msg.timestamp || null;
             if (!text) continue;
 
-            db.prepare('INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)').run(sessionId, role, text, timestamp);
+            const info = insertStmt.run(sessionId, role, text, timestamp);
+            const messageId = Number(info.lastInsertRowid || 0);
             console.log(`Watcher: Saved (${role}) [${timestamp || 'no-time'}]: ${text.substring(0, 30)}...`);
             inserted++;
+
+            if (messageId) {
+                insertedMessages.push({ id: messageId, role, content: text, timestamp });
+            }
         }
         
         if (inserted > 0) {
             console.log(`Watcher: Inserted ${inserted} new messages for ${sessionId}`);
+
+            // Evaluate messages for memory storage
+            if (insertedMessages.length > 0) {
+                try {
+                    const { evaluateAndStoreMemoryForMessage } = await import('./ipc');
+                    await Promise.all(
+                        insertedMessages.map((m) =>
+                            evaluateAndStoreMemoryForMessage({
+                                sessionId,
+                                appName,
+                                role: m.role,
+                                content: m.content,
+                                messageId: m.id
+                            })
+                        )
+                    );
+                } catch (e) {
+                    console.error('Watcher: Memory evaluation failed', e);
+                }
+            }
             
             // Trigger automatic summarization
             try {

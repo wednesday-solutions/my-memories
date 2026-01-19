@@ -28,6 +28,9 @@
     "clsx": "^2.1.1",
     "node-llama-cpp": "^3.15.0",
     "ollama": "^0.6.3",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.0",
     "vis-network": "^10.0.2"
   },
   "devDependencies": {

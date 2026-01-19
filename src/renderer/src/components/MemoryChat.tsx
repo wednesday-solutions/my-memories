@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 type RagContext = {
   masterMemory?: string | null;
@@ -26,6 +29,35 @@ export function MemoryChat({ appName }: MemoryChatProps) {
   const [loading, setLoading] = useState(false);
   const [openContextId, setOpenContextId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const markdownComponents = {
+    p: ({ children }: { children: ReactNode }) => (
+      <p style={{ margin: 0 }}>{children}</p>
+    ),
+    a: ({ href, children }: { href?: string; children: ReactNode }) => (
+      <a href={href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+        {children}
+      </a>
+    ),
+    code: ({ inline, children }: { inline?: boolean; children: ReactNode }) => (
+      <code
+        style={{
+          background: 'rgba(255,255,255,0.08)',
+          padding: inline ? '2px 4px' : '8px 10px',
+          borderRadius: '6px',
+          display: inline ? 'inline' : 'block',
+          fontFamily: 'ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          fontSize: '0.9em',
+          overflowX: 'auto'
+        }}
+      >
+        {children}
+      </code>
+    ),
+    pre: ({ children }: { children: ReactNode }) => (
+      <pre style={{ margin: 0 }}>{children}</pre>
+    )
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,9 +136,13 @@ export function MemoryChat({ appName }: MemoryChatProps) {
                 borderRadius: '12px',
                 background: message.role === 'user' ? 'var(--primary)' : 'var(--ev-c-black-soft)',
                 color: message.role === 'user' ? '#fff' : 'var(--text-main)',
-                whiteSpace: 'pre-wrap'
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                lineHeight: 1.5
               }}>
-                {message.content}
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+                  {message.content}
+                </ReactMarkdown>
               </div>
 
               {message.role === 'assistant' && message.context ? (

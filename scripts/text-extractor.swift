@@ -1,9 +1,29 @@
 import Cocoa
 import ApplicationServices
 
+enum CaptureMode {
+    case claudeDesktop
+    case claudeWeb
+    case chatgpt
+    case generic
+}
+
+var captureMode: CaptureMode = .generic
+
 /// Walks up the DOM ancestry to determine the semantic role of a text element
 /// Returns: "ASSISTANT", "USER", "METADATA", "CHAT_TITLE", or "NOISE"
 func getSemanticRole(element: AXUIElement) -> String {
+    switch captureMode {
+    case .chatgpt:
+        return getSemanticRoleForChatGPT(element: element)
+    case .claudeDesktop, .claudeWeb:
+        return getSemanticRoleForClaude(element: element)
+    case .generic:
+        return getSemanticRoleForClaude(element: element)
+    }
+}
+
+func getSemanticRoleForClaude(element: AXUIElement) -> String {
     var currentElement = element
     var depth = 0
     var hasAssistantClass = false
@@ -114,12 +134,94 @@ func getSemanticRole(element: AXUIElement) -> String {
     return "USER"
 }
 
+func getSemanticRoleForChatGPT(element: AXUIElement) -> String {
+    var currentElement = element
+    var depth = 0
+    var hasAssistantClass = false
+    var hasUserClass = false
+    var isUIElement = false
+
+    // Check the element's own role first
+    var role: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+    if let strRole = role as? String {
+        if strRole == "AXButton" || strRole == "AXMenuItem" || strRole == "AXLink" || strRole == "AXTab" || strRole == "AXToolbar" {
+            isUIElement = true
+        }
+    }
+
+    while depth < 20 {
+        var classList: AnyObject?
+        AXUIElementCopyAttributeValue(currentElement, "AXDOMClassList" as CFString, &classList)
+
+        var ancestorRole: AnyObject?
+        AXUIElementCopyAttributeValue(currentElement, kAXRoleAttribute as CFString, &ancestorRole)
+        if let r = ancestorRole as? String {
+            if r == "AXList" || r == "AXOutline" || r == "AXTable" || r == "AXGrid" || r == "AXToolbar" || r == "AXTabGroup" || r == "AXTextArea" || r == "AXTextField" || r == "AXButton" || r == "AXMenuButton" || r == "AXPopUpButton" || r == "AXMenuItem" {
+                isUIElement = true
+            }
+        }
+
+        var roleDesc: AnyObject?
+        AXUIElementCopyAttributeValue(currentElement, kAXRoleDescriptionAttribute as CFString, &roleDesc)
+        if let desc = roleDesc as? String {
+            let lower = desc.lowercased()
+            if lower.contains("menu") || lower.contains("toolbar") || lower.contains("tab") {
+                isUIElement = true
+            }
+        }
+
+        if let classes = classList as? [String] {
+            if classes.contains(where: { $0.contains("markdown") || $0.contains("prose") || $0.contains("assistant") || $0.contains("response") || $0.contains("result") }) {
+                hasAssistantClass = true
+            }
+            if classes.contains(where: { $0.contains("user") || $0.contains("prompt") || $0.contains("request") || $0.contains("whitespace-pre-wrap") || $0.contains("text-base") }) {
+                hasUserClass = true
+            }
+
+            if classes.contains("ProseMirror") || classes.contains("is-empty") || classes.contains("is-editor-empty") {
+                isUIElement = true
+            }
+        }
+
+        var parent: AnyObject?
+        AXUIElementCopyAttributeValue(currentElement, kAXParentAttribute as CFString, &parent)
+        if let parentElem = parent {
+            if CFGetTypeID(parentElem) == AXUIElementGetTypeID() {
+                currentElement = parentElem as! AXUIElement
+            } else {
+                break
+            }
+        } else {
+            break
+        }
+        depth += 1
+    }
+
+    if isUIElement {
+        return "NOISE"
+    }
+    if hasAssistantClass {
+        return "ASSISTANT"
+    }
+    if hasUserClass {
+        return "USER"
+    }
+
+    // Fallback: treat as user content to preserve chat text if role markers are missing
+    return "USER"
+}
+
 /// Known UI literals that should be filtered out
 let uiLiterals: Set<String> = [
     "Claude", "Copy", "Retry", "Edit", "Reply...", "Opus 4.5", "Star",
     "Sonnet", "Send", "Cancel", "New chat", "Share", "Settings",
     "Copied!", "Regenerate", "Continue", "Stop generating",
-    "Today", "Yesterday"  // Date headers only
+    "Today", "Yesterday",  // Date headers only
+    // ChatGPT UI
+    "ChatGPT", "Chat history", "Search chats", "Images", "Apps", "Projects",
+    "GPTs", "Explore GPTs", "Your chats", "Upgrade", "Log out", "Logout",
+    "Skip to content", "Help", "Account", "Plans", "Billing"
 ]
 
 /// Check if text looks like a timestamp
@@ -209,6 +311,49 @@ func findScrollArea(element: AXUIElement, depth: Int) -> AXUIElement? {
     return nil
 }
 
+/// Collect all scroll areas in the accessibility tree
+func findAllScrollAreas(element: AXUIElement, depth: Int, results: inout [AXUIElement]) {
+    if depth > 30 { return }
+    var role: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+    if let strRole = role as? String, strRole == "AXScrollArea" {
+        results.append(element)
+    }
+
+    var children: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &children)
+    if let childrenArray = children as? [AXUIElement] {
+        for child in childrenArray {
+            findAllScrollAreas(element: child, depth: depth + 1, results: &results)
+        }
+    }
+}
+
+func selectPrimaryScrollArea(from areas: [AXUIElement]) -> AXUIElement? {
+    if areas.isEmpty { return nil }
+    var best: AXUIElement? = nil
+    var bestScore = -1
+
+    for area in areas {
+        let lines = collectLines(from: area)
+        var score = 0
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+            let clean = trimmed.replacingOccurrences(of: "^\\[.*?\\]", with: "", options: .regularExpression)
+            if clean.isEmpty { continue }
+            if uiLiterals.contains(clean) { continue }
+            score += 1
+        }
+        if score > bestScore {
+            bestScore = score
+            best = area
+        }
+    }
+
+    return best
+}
+
 func getVerticalScrollBar(from scrollArea: AXUIElement) -> AXUIElement? {
     var bar: AnyObject?
     AXUIElementCopyAttributeValue(scrollArea, kAXVerticalScrollBarAttribute as CFString, &bar)
@@ -228,6 +373,72 @@ func getScrollRange(scrollBar: AXUIElement) -> (Double, Double)? {
     let maxNum = maxVal as? NSNumber
     if let min = minNum?.doubleValue, let max = maxNum?.doubleValue {
         return (min, max)
+    }
+    return nil
+}
+
+/// Check if text looks like a URL or domain
+func isLikelyURL(_ text: String) -> Bool {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty { return false }
+    if trimmed.count < 4 || trimmed.count > 2048 { return false }
+    if trimmed.contains(" ") { return false }
+
+    let lower = trimmed.lowercased()
+    if lower.contains("claude.ai") { return true }
+    if lower.contains("chatgpt.com") { return true }
+    if lower.contains("chat.openai.com") { return true }
+    if lower.hasPrefix("http://") || lower.hasPrefix("https://") { return true }
+
+    let pattern = "^[a-z0-9.-]+\\.[a-z]{2,}(/[^\\s]*)?$"
+    return lower.range(of: pattern, options: .regularExpression) != nil
+}
+
+func isClaudeURL(_ text: String) -> Bool {
+    let lower = text.lowercased()
+    return lower.contains("claude.ai")
+}
+
+func isChatGPTURL(_ text: String) -> Bool {
+    let lower = text.lowercased()
+    return lower.contains("chatgpt.com") || lower.contains("chat.openai.com")
+}
+
+/// Try to extract a URL-like string from an element
+func urlCandidate(from element: AXUIElement) -> String? {
+    var value: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value)
+    if let strValue = value as? String {
+        let trimmed = strValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isLikelyURL(trimmed) {
+            return trimmed
+        }
+    }
+    return nil
+}
+
+/// Find a browser URL in the accessibility tree, preferring claude.ai or chatgpt.com if present
+func findBrowserURL(element: AXUIElement, depth: Int, fallback: inout String?) -> String? {
+    if depth > 40 { return nil }
+
+    if let candidate = urlCandidate(from: element) {
+        let lower = candidate.lowercased()
+        if lower.contains("claude.ai") || lower.contains("chatgpt.com") || lower.contains("chat.openai.com") {
+            return candidate
+        }
+        if fallback == nil {
+            fallback = candidate
+        }
+    }
+
+    var children: AnyObject?
+    AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &children)
+    if let childrenArray = children as? [AXUIElement] {
+        for child in childrenArray {
+            if let found = findBrowserURL(element: child, depth: depth + 1, fallback: &fallback) {
+                return found
+            }
+        }
     }
     return nil
 }
@@ -289,8 +500,50 @@ for app in apps {
                 print("[WINDOW_TITLE] \(title)")
             }
 
+            // Attempt to extract browser URL (if present)
+            var urlFallback: String? = nil
+            var detectedURL: String? = nil
+            if let url = findBrowserURL(element: mainWin, depth: 0, fallback: &urlFallback) {
+                detectedURL = url
+                print("[BROWSER_URL] \(url)")
+            } else if let urlFallback = urlFallback {
+                detectedURL = urlFallback
+                print("[BROWSER_URL] \(urlFallback)")
+            }
+
+            // Set capture mode based on app + URL
+            if targetAppName.lowercased().contains("claude") {
+                captureMode = .claudeDesktop
+            } else if let url = detectedURL {
+                if isClaudeURL(url) {
+                    captureMode = .claudeWeb
+                } else if isChatGPTURL(url) {
+                    captureMode = .chatgpt
+                } else {
+                    captureMode = .generic
+                }
+            } else {
+                captureMode = .generic
+            }
+
             // Attempt multi-pass scrolling extraction for long chats
-            let scrollArea = findScrollArea(element: mainWin, depth: 0)
+            var extractionRoot: AXUIElement = mainWin
+            if captureMode == .chatgpt {
+                var areas: [AXUIElement] = []
+                findAllScrollAreas(element: mainWin, depth: 0, results: &areas)
+                if let best = selectPrimaryScrollArea(from: areas) {
+                    extractionRoot = best
+                }
+            }
+
+            let scrollArea: AXUIElement? = {
+                var role: AnyObject?
+                AXUIElementCopyAttributeValue(extractionRoot, kAXRoleAttribute as CFString, &role)
+                if let strRole = role as? String, strRole == "AXScrollArea" {
+                    return extractionRoot
+                }
+                return findScrollArea(element: extractionRoot, depth: 0)
+            }()
             let scrollBar = scrollArea != nil ? getVerticalScrollBar(from: scrollArea!) : nil
 
             var allLines: [String] = []
@@ -321,7 +574,7 @@ for app in apps {
                 // Start at top
                 setScrollValue(scrollBar: bar, value: minVal)
                 usleep(200_000)
-                appendLines(collectLines(from: mainWin))
+                appendLines(collectLines(from: extractionRoot))
 
                 if maxVal > minVal {
                     for i in 1...steps {
@@ -329,12 +582,12 @@ for app in apps {
                         let val = minVal + (maxVal - minVal) * t
                         setScrollValue(scrollBar: bar, value: val)
                         usleep(150_000)
-                        appendLines(collectLines(from: mainWin))
+                        appendLines(collectLines(from: extractionRoot))
                     }
                 }
             } else {
                 // Fallback: single pass
-                appendLines(collectLines(from: mainWin))
+                appendLines(collectLines(from: extractionRoot))
             }
 
             if !allLines.isEmpty {

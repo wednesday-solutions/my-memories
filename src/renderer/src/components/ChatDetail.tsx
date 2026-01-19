@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 interface Message {
     id: number;
@@ -16,6 +19,35 @@ interface ChatDetailProps {
 export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
+
+    const markdownComponents = {
+        p: ({ children }: { children: ReactNode }) => (
+            <p style={{ margin: 0 }}>{children}</p>
+        ),
+        a: ({ href, children }: { href?: string; children: ReactNode }) => (
+            <a href={href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+                {children}
+            </a>
+        ),
+        code: ({ inline, children }: { inline?: boolean; children: ReactNode }) => (
+            <code
+                style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    padding: inline ? '2px 4px' : '8px 10px',
+                    borderRadius: '6px',
+                    display: inline ? 'inline' : 'block',
+                    fontFamily: 'ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    fontSize: '0.9em',
+                    overflowX: 'auto'
+                }}
+            >
+                {children}
+            </code>
+        ),
+        pre: ({ children }: { children: ReactNode }) => (
+            <pre style={{ margin: 0 }}>{children}</pre>
+        )
+    };
 
     useEffect(() => {
         const fetchDetails = async () => {
@@ -70,10 +102,13 @@ export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
                             padding: '12px 16px',
                             borderRadius: '12px',
                             maxWidth: '80%',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word'
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            lineHeight: 1.5
                         }}>
-                            {msg.content}
+                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+                                {msg.content}
+                            </ReactMarkdown>
                         </div>
                     </div>
                 ))}
