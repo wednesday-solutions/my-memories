@@ -57,9 +57,9 @@ export function IngestionStatus() {
 
     if (denied) {
         return (
-            <div className="card" style={{ borderColor: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}>
-                <h3 style={{ color: '#ef4444', margin: 0 }}>Permission Required</h3>
-                <p style={{ fontSize: '0.9rem', marginBottom: 0 }}>
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 backdrop-blur-xl p-4">
+                <h3 className="text-red-400 font-semibold mb-2">Permission Required</h3>
+                <p className="text-sm text-neutral-400">
                     Please grant Accessibility permissions in System Settings.
                 </p>
             </div>
@@ -67,57 +67,70 @@ export function IngestionStatus() {
     }
 
     return (
-        <div className="card" style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span className="typography-label" style={{ color: 'var(--primary)', marginBottom: 0 }}>
-                    ● LIVE CONTEXT
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 backdrop-blur-xl p-4 mb-6">
+            <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-medium text-cyan-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    LIVE CONTEXT
                 </span>
                 {status && (
-                    <span className="typography-label" style={{ marginBottom: 0 }}>{status.appName}</span>
+                    <span className="text-xs text-neutral-500 px-2 py-0.5 rounded-full bg-neutral-800">
+                        {status.appName}
+                    </span>
                 )}
             </div>
 
             {status ? (
                 <div>
-                    <h2 style={{ fontSize: '1.1rem', margin: '0 0 8px 0', fontWeight: 600, lineHeight: 1.3 }}>
+                    <h2 className="text-base font-semibold text-white mb-3 leading-tight">
                         {status.title || 'Untitled Window'}
                     </h2>
 
                     {/* Selected Text Section */}
                     {status.selectedText && (
-                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '4px', fontSize: '0.85rem', marginBottom: '12px', fontStyle: 'italic', borderLeft: '2px solid var(--accent)' }}>
-                            <span style={{ color: 'var(--accent)', fontSize: '0.7rem', display: 'block', marginBottom: '4px' }}>SELECTION</span>
-                            "{status.selectedText.slice(0, 100)}{status.selectedText.length > 100 ? '...' : ''}"
+                        <div className="bg-cyan-500/10 border-l-2 border-cyan-400 rounded-r-lg p-3 mb-4">
+                            <span className="text-[10px] font-medium text-cyan-400 uppercase block mb-1">Selection</span>
+                            <span className="text-sm text-neutral-300 italic">
+                                "{status.selectedText.slice(0, 100)}{status.selectedText.length > 100 ? '...' : ''}"
+                            </span>
                         </div>
                     )}
 
                     {/* Full Content Section (Deep Traversal) */}
                     {!status.selectedText && status.content && (
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '4px', fontSize: '0.8rem', marginBottom: '12px', color: 'var(--text-dim)' }}>
-                            <span style={{ fontSize: '0.7rem', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>Window Content (Auto-Detected)</span>
-                            "{status.content.slice(0, 150)}{status.content.length > 150 ? '...' : ''}"
+                        <div className="bg-neutral-800/50 rounded-lg p-3 mb-4">
+                            <span className="text-[10px] font-medium text-neutral-500 uppercase block mb-1">
+                                Window Content (Auto-Detected)
+                            </span>
+                            <span className="text-sm text-neutral-400">
+                                "{status.content.slice(0, 150)}{status.content.length > 150 ? '...' : ''}"
+                            </span>
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleProcess}
-                            disabled={processing || (!status.content && !status.selectedText)}
-                            style={{ opacity: processing ? 0.7 : 1, width: '100%', justifyContent: 'center' }}
-                        >
-                            {processing ? 'Extracting...' : 'Save Context'}
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleProcess}
+                        disabled={processing || (!status.content && !status.selectedText)}
+                        className="w-full py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-medium text-sm hover:from-cyan-500 hover:to-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {processing ? (
+                            <>
+                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Extracting...
+                            </>
+                        ) : (
+                            'Save Context'
+                        )}
+                    </button>
 
                     {lastSaved && (
-                        <div style={{ marginTop: '8px', fontSize: '0.8rem', color: lastSaved.includes('Error') ? '#ef4444' : '#4ade80' }}>
+                        <div className={`mt-3 text-sm text-center ${lastSaved.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
                             {lastSaved}
                         </div>
                     )}
                 </div>
             ) : (
-                <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', padding: '16px 0', textAlign: 'center' }}>
+                <div className="text-neutral-500 italic text-center py-4">
                     Waiting for activity...
                 </div>
             )}

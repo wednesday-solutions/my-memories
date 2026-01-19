@@ -171,56 +171,79 @@ export function EntityGraph({ appName }: EntityGraphProps) {
     const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) : null;
 
     return (
-        <div style={{ display: 'flex', gap: '16px', height: '100%' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 700 }}>Entity Graph</div>
+        <div className="flex gap-4 h-full">
+            {/* Graph Area */}
+            <div className="flex-1 flex flex-col gap-3">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                    <h2 className="text-lg font-semibold text-white">Entity Graph</h2>
                     {focusEntityId && (
-                        <button className="btn" onClick={() => setFocusEntityId(undefined)} style={{ padding: '6px 10px' }}>
+                        <button 
+                            onClick={() => setFocusEntityId(undefined)} 
+                            className="px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors text-sm"
+                        >
                             Clear focus
                         </button>
                     )}
-                    <button className="btn" onClick={rebuildGraph} style={{ padding: '6px 10px', opacity: 0.8 }}>
+                    <button 
+                        onClick={rebuildGraph} 
+                        className="px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors text-sm"
+                    >
                         Rebuild
                     </button>
-                    <div style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '0.85rem' }}>
-                        {loading ? 'Loading…' : `Nodes: ${graph.nodes.length} • Edges: ${graph.edges.length}`}
+                    <div className="ml-auto text-sm text-neutral-500">
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <span className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                                Loading…
+                            </span>
+                        ) : (
+                            `${graph.nodes.length} nodes • ${graph.edges.length} edges`
+                        )}
                     </div>
                 </div>
+
+                {/* Graph Container */}
                 <div
                     ref={containerRef}
-                    style={{ flex: 1, minHeight: '420px', borderRadius: '12px', border: '1px solid var(--ev-c-gray-3)' }}
+                    className="flex-1 min-h-[420px] rounded-xl border border-neutral-800 bg-neutral-900/50"
                 />
-                <div style={{ opacity: 0.6, fontSize: '0.8rem' }}>
+
+                {/* Help Text */}
+                <div className="text-xs text-neutral-500">
                     Click a node to view details. Double‑click to focus on its neighborhood.
                 </div>
             </div>
 
-            <div style={{ width: '320px', flexShrink: 0 }}>
-                <div className="memory-card" style={{ padding: '14px' }}>
+            {/* Details Panel */}
+            <div className="w-80 flex-shrink-0">
+                <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 backdrop-blur-xl p-4">
                     {selectedNode ? (
                         <>
-                            <div style={{ fontWeight: 700, marginBottom: '6px' }}>{selectedNode.name}</div>
-                            <div style={{ display: 'inline-block' }} className="source-tag">{selectedNode.type || 'Unknown'}</div>
-                            <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '8px' }}>
-                                Facts: {selectedNode.fact_count} • Sessions: {selectedNode.session_count}
+                            <div className="font-semibold text-white mb-2">{selectedNode.name}</div>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                                {selectedNode.type || 'Unknown'}
+                            </span>
+                            <div className="text-xs text-neutral-500 mt-3">
+                                {selectedNode.fact_count} facts • {selectedNode.session_count} sessions
                             </div>
                             {selectedNode.summary ? (
-                                <div style={{ marginTop: '10px', whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>
+                                <div className="mt-3 text-sm text-neutral-300 whitespace-pre-wrap leading-relaxed">
                                     {selectedNode.summary}
                                 </div>
                             ) : (
-                                <div style={{ marginTop: '10px', opacity: 0.6, fontStyle: 'italic' }}>
+                                <div className="mt-3 text-sm text-neutral-500 italic">
                                     No summary available yet.
                                 </div>
                             )}
                             {selectedNode.facts && selectedNode.facts.length > 0 && (
-                                <div style={{ marginTop: '12px' }}>
-                                    <div style={{ fontWeight: 600, marginBottom: '6px' }}>Recent facts</div>
-                                    <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                                <div className="mt-4">
+                                    <div className="font-medium text-white text-sm mb-2">Recent facts</div>
+                                    <ul className="space-y-2 text-sm text-neutral-400">
                                         {selectedNode.facts.map((fact, idx) => (
-                                            <li key={`${selectedNode.id}-${idx}`} style={{ marginBottom: '6px', fontSize: '0.85rem' }}>
-                                                {fact}
+                                            <li key={`${selectedNode.id}-${idx}`} className="flex items-start gap-2">
+                                                <span className="text-cyan-400 mt-1">•</span>
+                                                <span>{fact}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -228,7 +251,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                             )}
                         </>
                     ) : (
-                        <div style={{ opacity: 0.6, fontStyle: 'italic' }}>
+                        <div className="text-neutral-500 italic text-center py-4">
                             Select a node to view details.
                         </div>
                     )}

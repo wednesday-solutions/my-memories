@@ -9,6 +9,17 @@ import { Onboarding } from './components/Onboarding';
 import { useState, useEffect } from 'react';
 import { StarsBackground } from './components/ui/stars-background';
 import { ShootingStars } from './components/ui/shooting-stars';
+import { Sidebar, SidebarBody } from './components/ui/sidebar';
+import { motion } from 'motion/react';
+import { 
+  IconMessageCircle, 
+  IconMessages, 
+  IconBrain, 
+  IconUsers, 
+  IconGraph,
+  IconSparkles
+} from '@tabler/icons-react';
+import { cn } from './lib/utils';
 
 const TABS = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'];
 type ViewMode = 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
@@ -16,8 +27,9 @@ type ViewMode = 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
 function App() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState('All');
-  const [viewMode, setViewMode] = useState<ViewMode>('chats');
+  const [viewMode, setViewMode] = useState<ViewMode>('memory-chat');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check onboarding status on mount
   useEffect(() => {
@@ -43,117 +55,118 @@ function App() {
     return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
+  const navItems = [
+    { label: 'Chat', icon: <IconMessageCircle className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'memory-chat' as ViewMode },
+    { label: 'Chats', icon: <IconMessages className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'chats' as ViewMode },
+    { label: 'Memories', icon: <IconBrain className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'memories' as ViewMode },
+    { label: 'Entities', icon: <IconUsers className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'entities' as ViewMode },
+    { label: 'Graph', icon: <IconGraph className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'graph' as ViewMode },
+  ];
+
   return (
-    <div className="app-container" style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+    <div className="h-screen w-full overflow-hidden bg-neutral-950 relative">
       {/* Background effects */}
-                              <StarsBackground className="absolute inset-0" />
-                              <ShootingStars />
+      <StarsBackground className="absolute inset-0 z-0" />
+      <ShootingStars />
 
-      {/* SIDEBAR NAVIGATION */}
-      <div className="sidebar" style={{
-        width: '200px',
-        background: 'var(--ev-c-black-soft)',
-        borderRight: '1px solid var(--ev-c-gray-3)',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '20px',
-        gap: '10px',
-        flexShrink: 0
-      }}>
-        <div style={{ marginBottom: '20px', fontWeight: 700, fontSize: '1.1rem' }}>Your Memories</div>
+      <div className="flex h-full relative z-10">
+        {/* Aceternity Sidebar */}
+        <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
+          <SidebarBody className="justify-between gap-10 bg-neutral-900/80 backdrop-blur-xl border-r border-neutral-800">
+            <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+              {/* Logo */}
+              <div className="flex items-center gap-2 py-2">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shrink-0">
+                  <IconSparkles className="h-4 w-4 text-white" />
+                </div>
+                <motion.span
+                  animate={{
+                    display: sidebarOpen ? 'inline-block' : 'none',
+                    opacity: sidebarOpen ? 1 : 0,
+                  }}
+                  className="font-semibold text-white whitespace-pre"
+                >
+                  Your Memories
+                </motion.span>
+              </div>
 
-        <button
-          className={`btn ${viewMode === 'memory-chat' ? 'active' : ''}`}
-          onClick={() => { setViewMode('memory-chat'); setSelectedSessionId(null); }}
-          style={{ justifyContent: 'flex-start', opacity: viewMode === 'memory-chat' ? 1 : 0.6 }}
-        >
-          Chat
-        </button>
-        <button
-          className={`btn ${viewMode === 'chats' ? 'active' : ''}`}
-          onClick={() => { setViewMode('chats'); setSelectedSessionId(null); }}
-          style={{ justifyContent: 'flex-start', opacity: viewMode === 'chats' ? 1 : 0.6 }}
-        >
-          Chats
-        </button>
-        <button
-          className={`btn ${viewMode === 'memories' ? 'active' : ''}`}
-          onClick={() => { setViewMode('memories'); setSelectedSessionId(null); }}
-          style={{ justifyContent: 'flex-start', opacity: viewMode === 'memories' ? 1 : 0.6 }}
-        >
-          Memories
-        </button>
-        <button
-          className={`btn ${viewMode === 'entities' ? 'active' : ''}`}
-          onClick={() => { setViewMode('entities'); setSelectedSessionId(null); }}
-          style={{ justifyContent: 'flex-start', opacity: viewMode === 'entities' ? 1 : 0.6 }}
-        >
-          Entities
-        </button>
-        <button
-          className={`btn ${viewMode === 'graph' ? 'active' : ''}`}
-          onClick={() => { setViewMode('graph'); setSelectedSessionId(null); }}
-          style={{ justifyContent: 'flex-start', opacity: viewMode === 'graph' ? 1 : 0.6 }}
-        >
-          Graph
-        </button>
-      </div>
-
-      {/* MAIN CONTENT AREA */}
-      <div className="main-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-
-        {/* Top Bar Navigation (Context Filters) */}
-        <div className="tab-bar" style={{
-          display: 'flex',
-          background: 'var(--ev-c-black-soft)',
-          borderBottom: '1px solid var(--ev-c-gray-3)',
-          padding: '10px 20px',
-          gap: '10px',
-          overflowX: 'auto',
-          flexShrink: 0
-        }}>
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              className={`btn ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => { setActiveTab(tab); setSelectedSessionId(null); }}
-              style={{
-                borderRadius: '20px',
-                padding: '6px 16px',
-                opacity: activeTab === tab ? 1 : 0.6,
-                background: activeTab === tab ? 'var(--primary)' : 'transparent',
-                border: '1px solid transparent',
-                color: activeTab === tab ? '#fff' : 'var(--text-main)',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="content-view" style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          {/* Logic: If Detail View is active, show it. Else show the List View (Chats or Memories) */}
-          {viewMode === 'chats' && selectedSessionId ? (
-            <ChatDetail sessionId={selectedSessionId} onBack={handleBack} />
-          ) : (
-            <div style={{ padding: '20px', height: '100%', overflowY: 'auto' }}>
-              {viewMode === 'memory-chat' ? (
-                <MemoryChat appName={activeTab} />
-              ) : viewMode === 'chats' ? (
-                <ChatList
-                  appName={activeTab}
-                  onSelectSession={setSelectedSessionId}
-                />
-              ) : viewMode === 'memories' ? (
-                <MemoryList appName={activeTab} />
-              ) : viewMode === 'entities' ? (
-                <EntityList appName={activeTab} />
-              ) : (
-                <EntityGraph appName={activeTab} />
-              )}
+              {/* Navigation */}
+              <div className="mt-8 flex flex-col gap-2">
+                {navItems.map((item) => (
+                  <button
+                    key={item.view}
+                    onClick={() => { setViewMode(item.view); setSelectedSessionId(null); }}
+                    className={cn(
+                      "flex items-center gap-2 py-2 px-2 rounded-lg transition-colors group/sidebar",
+                      viewMode === item.view 
+                        ? "bg-neutral-800 text-white" 
+                        : "text-neutral-400 hover:bg-neutral-800/50 hover:text-white"
+                    )}
+                  >
+                    {item.icon}
+                    <motion.span
+                      animate={{
+                        display: sidebarOpen ? 'inline-block' : 'none',
+                        opacity: sidebarOpen ? 1 : 0,
+                      }}
+                      className="text-sm whitespace-pre group-hover/sidebar:translate-x-1 transition duration-150"
+                    >
+                      {item.label}
+                    </motion.span>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+          </SidebarBody>
+        </Sidebar>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+          {/* Tab Bar */}
+          <div className="flex items-center gap-2 px-6 py-4 bg-neutral-900/50 backdrop-blur-xl border-b border-neutral-800">
+            {TABS.map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setActiveTab(tab); setSelectedSessionId(null); }}
+                className={cn(
+                  "relative px-4 py-2 rounded-full text-sm font-medium transition-all",
+                  activeTab === tab 
+                    ? "text-white" 
+                    : "text-neutral-500 hover:text-neutral-300"
+                )}
+              >
+                {activeTab === tab && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 rounded-full"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10">{tab}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-hidden">
+            {viewMode === 'chats' && selectedSessionId ? (
+              <ChatDetail sessionId={selectedSessionId} onBack={handleBack} />
+            ) : (
+              <div className="p-6 h-full overflow-y-auto">
+                {viewMode === 'memory-chat' ? (
+                  <MemoryChat appName={activeTab} />
+                ) : viewMode === 'chats' ? (
+                  <ChatList appName={activeTab} onSelectSession={setSelectedSessionId} />
+                ) : viewMode === 'memories' ? (
+                  <MemoryList appName={activeTab} />
+                ) : viewMode === 'entities' ? (
+                  <EntityList appName={activeTab} />
+                ) : (
+                  <EntityGraph appName={activeTab} />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

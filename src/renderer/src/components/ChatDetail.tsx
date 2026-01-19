@@ -67,46 +67,36 @@ export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
     }, [sessionId]);
 
     return (
-        <div className="chat-detail-container" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="header" style={{
-                padding: '10px',
-                borderBottom: '1px solid var(--ev-c-gray-3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-            }}>
-                <button onClick={onBack} className="btn">← Back</button>
-                <div style={{ fontWeight: 700 }}>{sessionId}</div>
+        <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-neutral-800 flex items-center gap-4 bg-neutral-900/50 backdrop-blur-xl">
+                <button 
+                    onClick={onBack} 
+                    className="px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors text-sm"
+                >
+                    ← Back
+                </button>
+                <div className="font-medium text-white truncate">{sessionId}</div>
             </div>
 
-            <div className="messages-area" style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-                {loading && <div>Loading conversation...</div>}
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-6">
+                {loading && (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                )}
 
                 {messages.map((msg, idx) => (
-                    <div key={idx} style={{
-                        marginBottom: '20px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                    }}>
-                        <div style={{
-                            fontSize: '0.8rem',
-                            marginBottom: '4px',
-                            opacity: 0.6,
-                            alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                        }}>
+                    <div key={idx} className={`mb-6 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className="text-xs text-neutral-500 mb-1">
                             {msg.role ? msg.role.toUpperCase() : 'UNKNOWN'}
                         </div>
-                        <div style={{
-                            background: msg.role === 'user' ? 'var(--primary)' : 'var(--color-background-mute)',
-                            color: msg.role === 'user' ? '#fff' : 'var(--text-main)',
-                            padding: '12px 16px',
-                            borderRadius: '12px',
-                            maxWidth: '80%',
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word',
-                            lineHeight: 1.5
-                        }}>
+                        <div className={`max-w-[80%] px-4 py-3 rounded-2xl ${
+                            msg.role === 'user' 
+                                ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white' 
+                                : 'bg-neutral-800 text-neutral-200'
+                        }`}>
                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
                                 {msg.content}
                             </ReactMarkdown>
@@ -115,7 +105,7 @@ export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
                 ))}
 
                 {messages.length === 0 && !loading && (
-                    <div style={{ opacity: 0.5 }}>No content available.</div>
+                    <div className="text-center text-neutral-500 py-8">No content available.</div>
                 )}
             </div>
         </div>

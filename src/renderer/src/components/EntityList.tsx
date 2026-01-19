@@ -127,73 +127,72 @@ export function EntityList({ appName }: EntityListProps) {
     };
 
     return (
-        <div className="entity-list-container" style={{ display: 'flex', gap: '16px' }}>
-            <div style={{ width: '35%', minWidth: '240px' }}>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <div className="h-full flex gap-4">
+            {/* Left panel - Entity list */}
+            <div className="w-[35%] min-w-[240px] flex flex-col">
+                {/* Type filter tabs */}
+                <div className="flex gap-2 mb-3 flex-wrap">
                     {typeTabs.map(type => (
                         <button
                             key={type}
-                            className={`btn ${typeFilter === type ? 'active' : ''}`}
                             onClick={() => setTypeFilter(type)}
-                            style={{ opacity: typeFilter === type ? 1 : 0.6 }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                typeFilter === type 
+                                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                                    : 'text-neutral-500 hover:text-neutral-300'
+                            }`}
                         >
                             {type}
                         </button>
                     ))}
                 </div>
 
-                <div style={{ marginBottom: '12px' }}>
-                    <input
-                        type="text"
-                        placeholder="Search entities..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '8px',
-                            border: '1px solid var(--ev-c-gray-3)',
-                            background: 'var(--color-background-soft)',
-                            color: 'var(--text-main)'
-                        }}
-                    />
+                {/* Search */}
+                <div className="mb-3">
+                    <div className="relative">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Search entities..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white text-sm placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                        />
+                    </div>
                 </div>
 
-                {loading && <div className="loading-spinner">Loading...</div>}
+                {loading && (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                )}
 
-                <div className="entities-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Entity list */}
+                <div className="flex-1 overflow-y-auto space-y-2">
                     {filteredEntities.map(entity => (
                         <div
                             key={entity.id}
-                            className={`memory-card clickable ${selectedEntityId === entity.id ? 'active' : ''}`}
                             onClick={() => setSelectedEntityId(entity.id)}
-                            style={{
-                                cursor: 'pointer',
-                                border: selectedEntityId === entity.id ? '1px solid var(--primary)' : '1px solid transparent',
-                                position: 'relative'
-                            }}
+                            className={`group relative p-3 rounded-xl cursor-pointer transition-all ${
+                                selectedEntityId === entity.id 
+                                    ? 'bg-neutral-800 border border-cyan-500/50' 
+                                    : 'bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700'
+                            }`}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                <span className="source-tag" style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#c4b5fd' }}>
+                            <div className="flex items-start justify-between mb-1">
+                                <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-500/20 text-purple-400">
                                     {entity.type || 'Unknown'}
                                 </span>
-                                <span className="timestamp">{formatTime(entity.updated_at)}</span>
+                                <span className="text-xs text-neutral-500">{formatTime(entity.updated_at)}</span>
                             </div>
-                            <div style={{ fontWeight: 700, paddingRight: '20px' }}>{entity.name}</div>
-                            <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>{entity.fact_count} facts</div>
+                            <div className="font-medium text-white text-sm pr-6">{entity.name}</div>
+                            <div className="text-xs text-neutral-500 mt-1">{entity.fact_count} facts</div>
 
                             <button
                                 onClick={(e) => handleDeleteEntity(e, entity.id)}
-                                style={{
-                                    position: 'absolute',
-                                    top: '10px',
-                                    right: '10px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    fontSize: '1.2rem'
-                                }}
+                                className="absolute top-3 right-3 w-5 h-5 rounded bg-neutral-800 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center text-xs"
                                 title="Delete entity"
                             >
                                 ×
@@ -202,63 +201,58 @@ export function EntityList({ appName }: EntityListProps) {
                     ))}
 
                     {!loading && filteredEntities.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '20px', opacity: 0.5 }}>
+                        <div className="text-center py-8 text-neutral-500 text-sm">
                             No entities found.
                         </div>
                     )}
                 </div>
             </div>
 
-            <div style={{ flex: 1 }}>
+            {/* Right panel - Entity details */}
+            <div className="flex-1 overflow-y-auto">
                 {details?.entity ? (
-                    <div className="memory-card" style={{ padding: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{details.entity.name}</div>
-                            <span className="source-tag">{details.entity.type || 'Unknown'}</span>
+                    <div className="p-5 rounded-xl bg-neutral-900/50 border border-neutral-800">
+                        <div className="flex items-start justify-between mb-4">
+                            <h3 className="text-xl font-semibold text-white">{details.entity.name}</h3>
+                            <span className="px-3 py-1 text-sm font-medium rounded-lg bg-purple-500/20 text-purple-400">
+                                {details.entity.type || 'Unknown'}
+                            </span>
                         </div>
 
-                        <div style={{ marginBottom: '12px', fontSize: '0.9rem', opacity: 0.7 }}>
+                        <div className="text-sm text-neutral-500 mb-4">
                             Updated: {formatTime(details.entity.updated_at)}
                         </div>
 
                         {details.entity.summary ? (
-                            <div style={{
-                                background: 'rgba(0, 0, 0, 0.2)',
-                                borderRadius: '8px',
-                                padding: '12px',
-                                marginBottom: '16px',
-                                whiteSpace: 'pre-wrap'
-                            }}>
+                            <div className="p-4 rounded-xl bg-neutral-800/50 border border-neutral-700 mb-6 text-neutral-300 whitespace-pre-wrap">
                                 {details.entity.summary}
                             </div>
                         ) : (
-                            <div style={{ marginBottom: '16px', opacity: 0.6, fontStyle: 'italic' }}>
+                            <div className="text-neutral-500 italic mb-6">
                                 No summary available yet.
                             </div>
                         )}
 
-                        <div style={{ fontWeight: 600, marginBottom: '8px' }}>Facts</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="font-semibold text-white mb-3">Facts</div>
+                        <div className="space-y-3">
                             {details.facts.map(fact => (
-                                <div key={fact.id} style={{
-                                    background: 'rgba(255,255,255,0.04)',
-                                    borderRadius: '6px',
-                                    padding: '10px'
-                                }}>
-                                    <div style={{ fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>{fact.fact}</div>
-                                    <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '6px' }}>
+                                <div key={fact.id} className="p-4 rounded-xl bg-neutral-800/30 border border-neutral-800">
+                                    <div className="text-sm text-neutral-300 whitespace-pre-wrap">{fact.fact}</div>
+                                    <div className="text-xs text-neutral-500 mt-2">
                                         {fact.source_session_id ? `Source: ${fact.source_session_id} • ` : ''}{formatTime(fact.created_at)}
                                     </div>
                                 </div>
                             ))}
 
                             {details.facts.length === 0 && (
-                                <div style={{ opacity: 0.6, fontStyle: 'italic' }}>No facts recorded yet.</div>
+                                <div className="text-neutral-500 italic text-sm">No facts recorded yet.</div>
                             )}
                         </div>
                     </div>
                 ) : (
-                    <div style={{ opacity: 0.6, fontStyle: 'italic' }}>Select an entity to view details.</div>
+                    <div className="h-full flex items-center justify-center text-neutral-500">
+                        Select an entity to view details
+                    </div>
                 )}
             </div>
         </div>
