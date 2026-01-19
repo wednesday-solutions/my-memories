@@ -134,19 +134,35 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                                 </ModalTrigger>
                                 <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
                                     <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
-                                        
-                                        
-                                        <div className="text-base font-semibold text-white">
-                                            {readableTitle} - Summary
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <div className="text-base font-semibold text-white">
+                                                    {readableTitle} - Summary
+                                                </div>
+                                                <div className="mt-1 text-xs text-neutral-500">{llmLabel}</div>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (session.summary) {
+                                                        await navigator.clipboard.writeText(session.summary);
+                                                    }
+                                                }}
+                                                className="h-8 w-8 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 transition-colors flex items-center justify-center"
+                                                title="Copy to clipboard"
+                                            >
+                                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                                                </svg>
+                                            </button>
                                         </div>
-                                        <div className="mt-1 text-xs text-neutral-500">{llmLabel}</div>
                                         <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200">
                                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
                                                 {session.summary}
                                             </ReactMarkdown>
                                         </div>
                                         <div className="mt-5 text-xs text-neutral-500">{session.session_id}</div>
-                                         <BorderBeam
+                                        <BorderBeam
                                             duration={6}
                                             size={400}
                                             className="from-transparent via-red-500 to-transparent"
@@ -157,9 +173,9 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                                             size={400}
                                             borderWidth={2}
                                             className="from-transparent via-blue-500 to-transparent"
-                                            />
+                                        />
                                     </ModalContent>
-                                    
+
                                 </ModalBody>
                             </Modal>
                         </div>

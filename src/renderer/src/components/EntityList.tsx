@@ -123,7 +123,7 @@ export function EntityList({ appName }: EntityListProps) {
 
     const formatTime = (dateStr: string) => {
         const iso = dateStr.replace(' ', 'T') + 'Z';
-        return new Date(iso).toLocaleString();
+        return new Date(iso).toLocaleString().substring(0, 16) + ' ' + new Date(iso).toLocaleString().substring(20, 22);
     };
 
     return (
@@ -136,11 +136,10 @@ export function EntityList({ appName }: EntityListProps) {
                         <button
                             key={type}
                             onClick={() => setTypeFilter(type)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                typeFilter === type 
-                                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${typeFilter === type
+                                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                                     : 'text-neutral-500 hover:text-neutral-300'
-                            }`}
+                                }`}
                         >
                             {type}
                         </button>
@@ -175,11 +174,10 @@ export function EntityList({ appName }: EntityListProps) {
                         <div
                             key={entity.id}
                             onClick={() => setSelectedEntityId(entity.id)}
-                            className={`group relative p-3 rounded-xl cursor-pointer transition-all ${
-                                selectedEntityId === entity.id 
-                                    ? 'bg-neutral-800 border border-cyan-500/50' 
+                            className={`group relative p-3 rounded-xl cursor-pointer transition-all ${selectedEntityId === entity.id
+                                    ? 'bg-neutral-800 border border-cyan-500/50'
                                     : 'bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700'
-                            }`}
+                                }`}
                         >
                             <div className="flex items-start justify-between mb-1">
                                 <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-500/20 text-purple-400">

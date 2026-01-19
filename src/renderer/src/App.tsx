@@ -11,11 +11,11 @@ import { StarsBackground } from './components/ui/stars-background';
 import { ShootingStars } from './components/ui/shooting-stars';
 import { Sidebar, SidebarBody } from './components/ui/sidebar';
 import { motion } from 'motion/react';
-import { 
-  IconMessageCircle, 
-  IconMessages, 
-  IconBrain, 
-  IconUsers, 
+import {
+  IconMessageCircle,
+  IconMessages,
+  IconBrain,
+  IconUsers,
   IconGraph,
   IconSparkles
 } from '@tabler/icons-react';
@@ -47,7 +47,7 @@ function App() {
       '/entities': 'entities',
       '/graph': 'graph'
     };
-    
+
     if (viewMap[path]) {
       setViewMode(viewMap[path]);
     }
@@ -62,7 +62,7 @@ function App() {
       'entities': '/entities',
       'graph': '/graph'
     };
-    
+
     const newPath = urlMap[viewMode];
     if (window.location.pathname !== newPath) {
       window.history.replaceState(null, '', newPath);
@@ -130,8 +130,8 @@ function App() {
                     onClick={() => { setViewMode(item.view); setSelectedSessionId(null); }}
                     className={cn(
                       "flex items-center gap-2 py-2 px-2 rounded-lg transition-colors group/sidebar",
-                      viewMode === item.view 
-                        ? "bg-neutral-800 text-white" 
+                      viewMode === item.view
+                        ? "bg-neutral-800 text-white"
                         : "text-neutral-400 hover:bg-neutral-800/50 hover:text-white"
                     )}
                   >
@@ -162,8 +162,8 @@ function App() {
                 onClick={() => { setActiveTab(tab); setSelectedSessionId(null); }}
                 className={cn(
                   "relative px-4 py-2 rounded-full text-sm font-medium transition-all",
-                  activeTab === tab 
-                    ? "text-white" 
+                  activeTab === tab
+                    ? "text-white"
                     : "text-neutral-500 hover:text-neutral-300"
                 )}
               >
