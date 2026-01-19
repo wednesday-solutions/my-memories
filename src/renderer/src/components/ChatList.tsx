@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -34,6 +34,32 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
         ? `${chatTitle.charAt(0).toUpperCase()}${chatTitle.slice(1)}`
         : session.session_id;
     const llmLabel = modelName ? modelName.replace(/[-_]/g, ' ') : 'LLM';
+
+    // Glare effect state
+    const containerRef = useRef<HTMLDivElement>(null);
+    const isPointerInside = useRef(false);
+    const [glareStyle, setGlareStyle] = useState({ x: 50, y: 50, opacity: 0, rotateX: 0, rotateY: 0 });
+
+    const handlePointerMove = (event: React.PointerEvent) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        // Calculate subtle rotation based on mouse position
+        const rotateY = ((x - 50) / 50) * 3; // max 3 degrees
+        const rotateX = ((y - 50) / 50) * -2; // max 2 degrees, inverted
+        setGlareStyle({ x, y, opacity: 0.15, rotateX, rotateY });
+    };
+
+    const handlePointerEnter = () => {
+        isPointerInside.current = true;
+        setGlareStyle(prev => ({ ...prev, opacity: 0.15 }));
+    };
+
+    const handlePointerLeave = () => {
+        isPointerInside.current = false;
+        setGlareStyle({ x: 50, y: 50, opacity: 0, rotateX: 0, rotateY: 0 });
+    };
+
     const markdownComponents = {
         p: ({ children }: { children?: React.ReactNode }) => (
             <p className="mb-3 last:mb-0 text-neutral-200">{children}</p>
@@ -89,11 +115,48 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
     };
 
     return (
-        <Item
-            variant="outline"
-            className="group cursor-pointer hover:border-neutral-700"
-            onClick={() => onSelect(session.session_id)}
+        <div
+            ref={containerRef}
+            className="relative overflow-hidden rounded-lg"
+            style={{
+                transform: `perspective(800px) rotateX(${glareStyle.rotateX}deg) rotateY(${glareStyle.rotateY}deg)`,
+                transition: 'transform 0.2s ease-out',
+            }}
+            onPointerMove={handlePointerMove}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
         >
+            {/* Glare/Shimmer overlay */}
+            <div
+                className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
+                style={{
+                    background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.4) 0%, rgba(120,200,255,0.2) 25%, rgba(255,255,255,0) 60%)`,
+                    opacity: glareStyle.opacity,
+                }}
+            />
+            {/* Rainbow shimmer effect */}
+            <div
+                className="pointer-events-none absolute inset-0 z-10 mix-blend-color-dodge transition-opacity duration-300"
+                style={{
+                    background: `
+                        radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, 
+                            rgba(255,119,115,0.15) 0%,
+                            rgba(255,237,95,0.1) 15%,
+                            rgba(168,255,95,0.1) 30%,
+                            rgba(131,255,247,0.1) 45%,
+                            rgba(120,148,255,0.1) 60%,
+                            rgba(216,117,255,0.1) 75%,
+                            transparent 90%
+                        )
+                    `,
+                    opacity: glareStyle.opacity * 2,
+                }}
+            />
+            <Item
+                variant="outline"
+                className="group cursor-pointer hover:border-neutral-700 relative"
+                onClick={() => onSelect(session.session_id)}
+            >
             <ItemContent>
                 <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
@@ -192,6 +255,7 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                 </div>
             </ItemActions>
         </Item>
+        </div>
     );
 }
 
