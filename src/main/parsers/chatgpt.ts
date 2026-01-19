@@ -139,7 +139,8 @@ export function parseChatGPTOutput(text: string): ParseResult {
         // Detect Semantic Roles
         if (trimmed.startsWith("[USER]")) {
             const nextContent = trimmed.replace("[USER]", "").trim();
-            const roleToUse = forcedRole || "user";
+            const roleToUse = "user";
+            forcedRole = null;
             if (currentRole === roleToUse) {
                 if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
             } else {
@@ -150,7 +151,8 @@ export function parseChatGPTOutput(text: string): ParseResult {
         } 
         else if (trimmed.startsWith("[ASSISTANT]")) {
             const nextContent = trimmed.replace("[ASSISTANT]", "").trim();
-            const roleToUse = forcedRole || "assistant";
+            const roleToUse = "assistant";
+            forcedRole = null;
             if (currentRole === roleToUse) {
                 if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
             } else {

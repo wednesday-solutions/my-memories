@@ -63,7 +63,8 @@ export class LLMService {
       "--mmproj", this.mmProjPath,
       "--port", String(this.port),
       "--host", "127.0.0.1",
-      "-c", "8192" // Context size
+      "--image-min-tokens", "2048",
+      "-c", "64000" // Context size
     ]);
 
 

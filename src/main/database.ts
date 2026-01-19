@@ -724,3 +724,22 @@ export function getEntityDetails(entityId: number, appName?: string) {
 
     return { nodes: nodesWithFacts, edges };
   }
+
+// === DELETE FUNCTIONS ===
+
+export function deleteEntity(entityId: number): boolean {
+    const db = getDB();
+    // Foreign key cascade will handle entity_facts, entity_sessions, entity_edges
+    const stmt = db.prepare('DELETE FROM entities WHERE id = ?');
+    const info = stmt.run(entityId);
+    console.log(`Deleted entity ${entityId}, changes: ${info.changes}`);
+    return info.changes > 0;
+}
+
+export function deleteMemory(memoryId: number): boolean {
+    const db = getDB();
+    const stmt = db.prepare('DELETE FROM memories WHERE id = ?');
+    const info = stmt.run(memoryId);
+    console.log(`Deleted memory ${memoryId}, changes: ${info.changes}`);
+    return info.changes > 0;
+}

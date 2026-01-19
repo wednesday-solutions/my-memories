@@ -27,12 +27,12 @@ export class ScraperService {
           args = [appName];
       } else {
           // In dev, prefer the Swift script to pick up latest changes
-          cmd = "swift";
-          const sourcePath = app.isPackaged 
-            ? path.join(process.resourcesPath, "scripts", "text-extractor.swift")
-            : path.join(process.cwd(), "scripts", "text-extractor.swift");
-            
-          args = [sourcePath, appName];
+          cmd = "bash";
+          const wrapperPath = app.isPackaged
+            ? path.join(process.resourcesPath, "scripts", "text-extractor.sh")
+            : path.join(process.cwd(), "scripts", "text-extractor.sh");
+
+          args = [wrapperPath, appName];
       }
 
       console.log(`[Scraper] Executing: ${cmd} ${args.join(" ")}`);

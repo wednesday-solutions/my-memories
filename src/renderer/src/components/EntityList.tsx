@@ -59,6 +59,22 @@ export function EntityList({ appName }: EntityListProps) {
         }
     };
 
+    const handleDeleteEntity = async (e: React.MouseEvent, entityId: number) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this entity? This will also delete all associated facts.")) return;
+
+        try {
+            await window.api.deleteEntity(entityId);
+            setEntities(prev => prev.filter(ent => ent.id !== entityId));
+            if (selectedEntityId === entityId) {
+                setSelectedEntityId(null);
+                setDetails(null);
+            }
+        } catch (e) {
+            console.error("Failed to delete entity", e);
+        }
+    };
+
     useEffect(() => {
         fetchEntities();
     }, [appName]);
@@ -153,7 +169,8 @@ export function EntityList({ appName }: EntityListProps) {
                             onClick={() => setSelectedEntityId(entity.id)}
                             style={{
                                 cursor: 'pointer',
-                                border: selectedEntityId === entity.id ? '1px solid var(--primary)' : '1px solid transparent'
+                                border: selectedEntityId === entity.id ? '1px solid var(--primary)' : '1px solid transparent',
+                                position: 'relative'
                             }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -162,8 +179,25 @@ export function EntityList({ appName }: EntityListProps) {
                                 </span>
                                 <span className="timestamp">{formatTime(entity.updated_at)}</span>
                             </div>
-                            <div style={{ fontWeight: 700 }}>{entity.name}</div>
+                            <div style={{ fontWeight: 700, paddingRight: '20px' }}>{entity.name}</div>
                             <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>{entity.fact_count} facts</div>
+
+                            <button
+                                onClick={(e) => handleDeleteEntity(e, entity.id)}
+                                style={{
+                                    position: 'absolute',
+                                    top: '10px',
+                                    right: '10px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    fontSize: '1.2rem'
+                                }}
+                                title="Delete entity"
+                            >
+                                ×
+                            </button>
                         </div>
                     ))}
 

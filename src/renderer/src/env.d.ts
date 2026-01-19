@@ -19,11 +19,12 @@ interface IElectronAPI {
   // RAG Chat
   ragChat: (query: string, appName?: string) => Promise<{ answer: string; context: any }>
 
-  // Entities
   getEntities: (appName?: string) => Promise<any[]>
   getEntityDetails: (entityId: number, appName?: string) => Promise<any>
   getEntityGraph: (appName?: string, focusEntityId?: number, edgeLimit?: number) => Promise<{ nodes: any[]; edges: any[] }>
   rebuildEntityGraph: () => Promise<boolean>
+  deleteEntity: (entityId: number) => Promise<boolean>
+  deleteMemory: (memoryId: number) => Promise<boolean>
   
   onWatcherData: (callback: (data: any) => void) => () => void
   onPermissionDenied: (callback: () => void) => () => void

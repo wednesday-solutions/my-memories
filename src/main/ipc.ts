@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
@@ -653,9 +653,20 @@ Answer:`;
       return await summarizeSession(sessionId);
   });
 
-  // Master Memory handlers
   ipcMain.handle('db:get-master-memory', () => {
       return getMasterMemory();
+  });
+
+  ipcMain.handle('db:delete-entity', (_, entityId: number) => {
+      const result = deleteEntity(entityId);
+      console.log(`[IPC] Deleted entity ${entityId}: ${result}`);
+      return result;
+  });
+
+  ipcMain.handle('db:delete-memory', (_, memoryId: number) => {
+      const result = deleteMemory(memoryId);
+      console.log(`[IPC] Deleted memory ${memoryId}: ${result}`);
+      return result;
   });
 
   ipcMain.handle('db:regenerate-master-memory', async () => {

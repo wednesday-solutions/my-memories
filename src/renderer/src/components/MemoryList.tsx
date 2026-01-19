@@ -48,6 +48,18 @@ export function MemoryList({ appName }: MemoryListProps) {
         return new Date(iso).toLocaleString();
     };
 
+    const handleDeleteMemory = async (e: React.MouseEvent, memoryId: number) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this memory?")) return;
+
+        try {
+            await window.api.deleteMemory(memoryId);
+            setMemories(prev => prev.filter(m => m.id !== memoryId));
+        } catch (e) {
+            console.error("Failed to delete memory", e);
+        }
+    };
+
     return (
         <div className="memory-list-container">
             <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
@@ -93,16 +105,33 @@ export function MemoryList({ appName }: MemoryListProps) {
 
                     <div className="memories-list">
                         {filteredMemories.map(memory => (
-                            <div key={memory.id} className="memory-card" style={{ marginBottom: '10px', padding: '15px' }}>
+                            <div key={memory.id} className="memory-card" style={{ marginBottom: '10px', padding: '15px', position: 'relative' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                                     <span className="source-tag">
                                         {memory.source_app}
                                     </span>
                                     <span className="timestamp">{formatTime(memory.created_at)}</span>
                                 </div>
-                                <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>
+                                <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.95rem', paddingRight: '20px' }}>
                                     {memory.content}
                                 </div>
+
+                                <button
+                                    onClick={(e) => handleDeleteMemory(e, memory.id)}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '10px',
+                                        right: '10px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        fontSize: '1.2rem'
+                                    }}
+                                    title="Delete memory"
+                                >
+                                    ×
+                                </button>
                             </div>
                         ))}
 
