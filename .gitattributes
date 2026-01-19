@@ -1,2 +1,2 @@
-resources/models/*.gguf filter=lfs diff=lfs merge=lfs -text
 resources/bin/* filter=lfs diff=lfs merge=lfs -text
+resources/models/*.gguf filter=lfs diff=lfs merge=lfs -text
