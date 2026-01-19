@@ -163,13 +163,14 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                                         </div>
                                         <div className="mt-5 text-xs text-neutral-500">{session.session_id}</div>
                                         <BorderBeam
-                                            duration={6}
+                                            duration={4}
                                             size={400}
+                                            borderWidth={2}
                                             className="from-transparent via-red-500 to-transparent"
                                         />
                                         <BorderBeam
-                                            duration={6}
-                                            delay={3}
+                                            duration={4}
+                                            delay={1}
                                             size={400}
                                             borderWidth={2}
                                             className="from-transparent via-blue-500 to-transparent"

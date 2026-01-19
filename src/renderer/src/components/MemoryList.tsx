@@ -177,8 +177,16 @@ export function MemoryList({ appName }: MemoryListProps) {
                         </ModalTrigger>
                         <ModalBody className="bg-neutral-950 border-neutral-800 md:max-w-[60%] lg:max-w-[50%]">
                             <BorderBeam
-                                duration={8}
-                                size={320}
+                                duration={4}
+                                delay={1}
+                                size={400}
+                                borderWidth={2}
+                                className="from-transparent via-blue-500 to-transparent"
+                            />
+                            <BorderBeam
+                                duration={4}
+                                size={400}
+                                borderWidth={2}
                                 className="from-transparent via-cyan-500 to-transparent"
                             />
                             <ModalContent className="p-6">
