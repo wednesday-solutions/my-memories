@@ -258,6 +258,9 @@ function EntityDetailsPanel({
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ delay: index * 0.05 }}
+                                    style={{
+                                        marginBottom: 8
+                                    }}
                                 >
                                     <Modal>
                                         <ModalTrigger className="w-full text-left p-3 rounded-lg bg-neutral-800/30 border border-neutral-800 hover:bg-neutral-800/50 hover:border-neutral-700 transition-all group">

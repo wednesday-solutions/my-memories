@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { DataSet, Network } from 'vis-network/standalone';
-import 'vis-network/styles/vis-network.css';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import ForceGraph3D from 'react-force-graph-3d';
+import * as THREE from 'three';
+import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@renderer/lib/utils';
+import { BorderBeam } from './ui/border-beam';
 
 interface GraphNode {
     id: number;
@@ -31,19 +34,103 @@ interface EntityGraphProps {
     appName: string;
 }
 
+// Color palette for different entity types
+const typeColors: Record<string, string> = {
+    'Person': '#f472b6',      // Pink
+    'Organization': '#60a5fa', // Blue
+    'Technology': '#34d399',   // Green
+    'Concept': '#a78bfa',      // Purple
+    'Location': '#fbbf24',     // Yellow
+    'Event': '#f97316',        // Orange
+    'Product': '#22d3d8',      // Cyan
+    'Unknown': '#9ca3af',      // Gray
+};
+
+const normalizeType = (type?: string): string => {
+    if (!type) return 'Unknown';
+    const t = type.trim().toLowerCase();
+    
+    // Map common aliases to our defined types
+    const typeMap: Record<string, string> = {
+        'library': 'Technology',
+        'framework': 'Technology',
+        'tool': 'Technology',
+        'software': 'Technology',
+        'api': 'Technology',
+        'sdk': 'Technology',
+        'platform': 'Technology',
+        'service': 'Technology',
+        'company': 'Organization',
+        'corp': 'Organization',
+        'corporation': 'Organization',
+        'startup': 'Organization',
+        'human': 'Person',
+        'user': 'Person',
+        'individual': 'Person',
+        'place': 'Location',
+        'city': 'Location',
+        'country': 'Location',
+        'region': 'Location',
+        'idea': 'Concept',
+        'theory': 'Concept',
+        'principle': 'Concept',
+        'methodology': 'Concept',
+        'meeting': 'Event',
+        'conference': 'Event',
+        'launch': 'Event',
+        'release': 'Event',
+        'app': 'Product',
+        'application': 'Product',
+        'website': 'Product',
+        'design system': 'Product',
+        'ui library': 'Product',
+    };
+
+    // Check for exact match in our map
+    if (typeMap[t]) return typeMap[t];
+
+    // Capitalize first letter for direct check against typeColors
+    const normalized = t.charAt(0).toUpperCase() + t.slice(1);
+    
+    // Check if we have a direct color match
+    if (typeColors[normalized]) return normalized;
+
+    // Default to Unknown
+    return 'Unknown';
+};
+
+const getTypeColor = (type: string): string => {
+    const normalized = normalizeType(type);
+    return typeColors[normalized] || typeColors['Unknown'];
+};
+
 export function EntityGraph({ appName }: EntityGraphProps) {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const networkRef = useRef<Network | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graphRef = useRef<any>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const [graph, setGraph] = useState<GraphResponse>({ nodes: [], edges: [] });
     const [loading, setLoading] = useState(false);
     const [focusEntityId, setFocusEntityId] = useState<number | undefined>();
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+    const [hoveredNodeId, setHoveredNodeId] = useState<number | null>(null);
+    const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
 
     const nodesById = useMemo(() => {
         const map = new Map<number, GraphNode>();
         graph.nodes.forEach(n => map.set(n.id, n));
         return map;
     }, [graph.nodes]);
+
+    // Transform data for force-graph
+    const graphData = useMemo(() => ({
+        nodes: graph.nodes.map(n => ({ ...n })),
+        links: graph.edges.map(e => ({
+            source: e.source,
+            target: e.target,
+            weight: e.weight,
+            type: e.type,
+        })),
+    }), [graph]);
 
     const fetchGraph = async () => {
         setLoading(true);
@@ -69,124 +156,186 @@ export function EntityGraph({ appName }: EntityGraphProps) {
         }
     };
 
+    // Handle container resize
+    useEffect(() => {
+        const updateDimensions = () => {
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                setDimensions({ width: rect.width, height: Math.max(420, rect.height) });
+            }
+        };
+
+        updateDimensions();
+        window.addEventListener('resize', updateDimensions);
+        const resizeObserver = new ResizeObserver(updateDimensions);
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
+
+        return () => {
+            window.removeEventListener('resize', updateDimensions);
+            resizeObserver.disconnect();
+        };
+    }, []);
+
     useEffect(() => {
         fetchGraph();
     }, [appName, focusEntityId]);
 
+    // Configure d3 forces for better node spacing
     useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
+        if (graphRef.current && graph.nodes.length > 0) {
+            // Access the force simulation
+            const fg = graphRef.current;
 
-        const nodes = new DataSet<{ id: number; label: string; value: number; title: string }>(
-            graph.nodes.map(n => ({
-                id: n.id,
-                label: n.name,
-                value: Math.max(1, Math.log2(n.fact_count + 1) + 1),
-                title: `${n.name} (${n.type})\nFacts: ${n.fact_count}\nSessions: ${n.session_count}`
-            }))
-        );
+            // Configure charge force (node repulsion)
+            fg.d3Force('charge')?.strength(-400);
+            fg.d3Force('charge')?.distanceMax(600);
 
-        const edges = new DataSet<{ id: string; from: number; to: number; value: number; label?: string }>(
-            graph.edges.map((e, idx) => ({
-                id: `${e.source}-${e.target}-${e.type}-${e.updated_at ?? ''}-${idx}`,
-                from: e.source,
-                to: e.target,
-                value: e.weight,
-                label: e.weight >= 2 ? String(e.weight) : undefined
-            }))
-        );
+            // Configure link force (spring length between connected nodes)
+            fg.d3Force('link')?.distance(120);
 
-        if (!networkRef.current) {
-            networkRef.current = new Network(container, { nodes, edges }, {
-                autoResize: true,
-                layout: { improvedLayout: true },
-                interaction: {
-                    hover: true,
-                    tooltipDelay: 80,
-                    hideEdgesOnDrag: true,
-                    hideEdgesOnZoom: true
-                },
-                physics: {
-                    solver: 'forceAtlas2Based',
-                    forceAtlas2Based: {
-                        gravitationalConstant: -35,
-                        springLength: 140,
-                        springConstant: 0.08
-                    },
-                    stabilization: { iterations: 200 }
-                },
-                nodes: {
-                    shape: 'dot',
-                    scaling: { min: 10, max: 28 },
-                    font: {
-                        color: '#e5e7eb',
-                        size: 14,
-                        strokeWidth: 0
-                    },
-                    labelHighlightBold: false,
-                    color: {
-                        border: '#7c3aed',
-                        background: '#1f2937',
-                        highlight: {
-                            border: '#a78bfa',
-                            background: '#2d1b69'
-                        }
-                    }
-                },
-                edges: {
-                    color: { color: '#6b7280', highlight: '#c4b5fd', opacity: 0.4 },
-                    width: 1,
-                    selectionWidth: 2,
-                    smooth: { enabled: true, type: 'dynamic', roundness: 0.2 }
-                }
-            });
+            // Weaker centering force
+            fg.d3Force('center')?.strength(0.03);
 
-            networkRef.current.on('click', params => {
-                if (params.nodes.length > 0) {
-                    const nodeId = params.nodes[0] as number;
-                    setSelectedNodeId(nodeId);
-                }
-            });
-
-            networkRef.current.on('doubleClick', params => {
-                if (params.nodes.length > 0) {
-                    const nodeId = params.nodes[0] as number;
-                    setFocusEntityId(nodeId);
-                }
-            });
-        } else {
-            networkRef.current.setData({ nodes, edges });
+            // Reheat simulation to apply new forces
+            fg.d3ReheatSimulation();
         }
     }, [graph]);
 
-    useEffect(() => {
-        return () => {
-            if (networkRef.current) {
-                networkRef.current.destroy();
-                networkRef.current = null;
-            }
-        };
+    // Focus camera on selected node
+    const handleNodeClick = useCallback((node: GraphNode & { x?: number; y?: number; z?: number }) => {
+        setSelectedNodeId(node.id);
+
+        // Smooth camera transition to node
+        if (graphRef.current && node.x !== undefined && node.y !== undefined && node.z !== undefined) {
+            const distance = 120;
+            const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+            graphRef.current.cameraPosition(
+                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                { x: node.x, y: node.y, z: node.z },
+                800
+            );
+        }
     }, []);
+
+    const handleNodeDoubleClick = useCallback((node: GraphNode) => {
+        setFocusEntityId(node.id);
+    }, []);
+
+    const handleNodeHover = useCallback((node: GraphNode | null) => {
+        setHoveredNodeId(node ? node.id : null);
+        if (containerRef.current) {
+            containerRef.current.style.cursor = node ? 'pointer' : 'grab';
+        }
+    }, []);
+
+    // Custom node object with sphere + label sprite
+    const nodeThreeObject = useCallback((node: GraphNode & { x?: number; y?: number; z?: number }) => {
+        const isSelected = node.id === selectedNodeId;
+        const isHovered = node.id === hoveredNodeId;
+        const color = getTypeColor(node.type || 'Unknown');
+        const threeColor = new THREE.Color(color);
+
+        // Size based on fact count
+        const baseSize = Math.max(6, Math.min(16, 6 + Math.log2(node.fact_count + 1) * 3));
+        const size = isSelected ? baseSize * 1.4 : isHovered ? baseSize * 1.2 : baseSize;
+
+        const group = new THREE.Group();
+
+        // Outer glow (larger, semi-transparent sphere)
+        const glowGeometry = new THREE.SphereGeometry(size * (isSelected ? 2.2 : 1.6), 32, 32);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: threeColor,
+            transparent: true,
+            opacity: isSelected ? 0.35 : isHovered ? 0.25 : 0.15,
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        group.add(glow);
+
+        // Main sphere with stronger color
+        const geometry = new THREE.SphereGeometry(size, 32, 32);
+        const material = new THREE.MeshBasicMaterial({
+            color: threeColor,
+            transparent: true,
+            opacity: isSelected ? 1 : 0.95,
+        });
+        const sphere = new THREE.Mesh(geometry, material);
+        group.add(sphere);
+
+        // Inner bright core - slightly tinted with the node color
+        const coreGeometry = new THREE.SphereGeometry(size * 0.35, 16, 16);
+        const coreColor = new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.7);
+        const coreMaterial = new THREE.MeshBasicMaterial({
+            color: coreColor,
+            transparent: true,
+            opacity: 0.8,
+        });
+        const core = new THREE.Mesh(coreGeometry, coreMaterial);
+        group.add(core);
+
+        // Text sprite for label
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (context) {
+            const fontSize = 48;
+            const text = node.name.length > 20 ? node.name.substring(0, 18) + '...' : node.name;
+
+            canvas.width = 512;
+            canvas.height = 128;
+
+            context.fillStyle = 'transparent';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            context.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+
+            // Text shadow
+            context.fillStyle = 'rgba(0,0,0,0.8)';
+            context.fillText(text, canvas.width / 2 + 2, canvas.height / 2 + 2);
+
+            // Main text
+            context.fillStyle = isSelected ? '#ffffff' : 'rgba(255,255,255,0.9)';
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+
+            const spriteMaterial = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+                depthWrite: false,
+            });
+
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(60, 15, 1);
+            sprite.position.y = size + 12;
+            group.add(sprite);
+        }
+
+        return group;
+    }, [selectedNodeId, hoveredNodeId]);
 
     const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) : null;
 
     return (
-        <div className="flex gap-4 h-full">
-            {/* Graph Area */}
-            <div className="flex-1 flex flex-col gap-3">
+        <div className="flex gap-4 h-full overflow-hidden">
+            {/* Graph Area - Fixed width to prevent drift */}
+            <div className="flex-1 flex flex-col gap-3 min-w-0">
                 {/* Header */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                     <h2 className="text-lg font-semibold text-white">Entity Graph</h2>
                     {focusEntityId && (
-                        <button 
-                            onClick={() => setFocusEntityId(undefined)} 
+                        <button
+                            onClick={() => setFocusEntityId(undefined)}
                             className="px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors text-sm"
                         >
                             Clear focus
                         </button>
                     )}
-                    <button 
-                        onClick={rebuildGraph} 
+                    <button
+                        onClick={rebuildGraph}
                         className="px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors text-sm"
                     >
                         Rebuild
@@ -203,58 +352,199 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                     </div>
                 </div>
 
-                {/* Graph Container */}
+                {/* 3D Graph Container */}
                 <div
                     ref={containerRef}
-                    className="flex-1 min-h-[420px] rounded-xl border border-neutral-800 bg-neutral-900/50"
-                />
+                    className="flex-1 min-h-[420px] rounded-xl border border-neutral-800 bg-neutral-950 overflow-hidden relative"
+                >
+                    {dimensions.width > 0 && (
+                        <ForceGraph3D
+                            ref={graphRef}
+                            width={dimensions.width}
+                            height={dimensions.height}
+                            graphData={graphData}
+                            nodeId="id"
+                            nodeThreeObject={nodeThreeObject}
+                            nodeThreeObjectExtend={false}
+                            onNodeClick={handleNodeClick}
+                            onNodeRightClick={handleNodeDoubleClick}
+                            onNodeHover={handleNodeHover}
+                            linkColor={() => 'rgba(139, 92, 246, 0.4)'}
+                            linkWidth={(link: { weight: number }) => Math.max(1, Math.min(4, link.weight * 0.5))}
+                            linkOpacity={0.5}
+                            linkCurvature={0.2}
+                            linkDirectionalParticles={3}
+                            linkDirectionalParticleWidth={2}
+                            linkDirectionalParticleSpeed={0.006}
+                            linkDirectionalParticleColor={() => '#c4b5fd'}
+                            backgroundColor="#0a0a0a"
+                            showNavInfo={false}
+                            enableNodeDrag={true}
+                            enableNavigationControls={true}
+                            controlType="orbit"
+                            cooldownTime={4000}
+                            d3AlphaDecay={0.008}
+                            d3VelocityDecay={0.15}
+                            onEngineStop={() => {
+                                // Zoom in after layout stabilizes
+                                if (graphRef.current) {
+                                    graphRef.current.zoomToFit(600, 100);
+                                }
+                            }}
+                            warmupTicks={80}
+                        />
+                    )}
+
+                    {/* Loading overlay */}
+                    <AnimatePresence>
+                        {loading && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm z-10"
+                            >
+                                <div className="relative">
+                                    <div className="w-16 h-16 border-2 border-purple-500/30 rounded-full" />
+                                    <div className="absolute top-0 left-0 w-16 h-16 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
 
                 {/* Help Text */}
-                <div className="text-xs text-neutral-500">
-                    Click a node to view details. Double‑click to focus on its neighborhood.
+                <div className="text-xs text-neutral-500 flex-shrink-0">
+                    Click a node to view details. Right‑click to filter neighborhood. Drag to orbit, scroll to zoom.
                 </div>
             </div>
 
-            {/* Details Panel */}
-            <div className="w-80 flex-shrink-0">
-                <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 backdrop-blur-xl p-4">
-                    {selectedNode ? (
-                        <>
-                            <div className="font-semibold text-white mb-2">{selectedNode.name}</div>
-                            <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                                {selectedNode.type || 'Unknown'}
-                            </span>
-                            <div className="text-xs text-neutral-500 mt-3">
-                                {selectedNode.fact_count} facts • {selectedNode.session_count} sessions
-                            </div>
-                            {selectedNode.summary ? (
-                                <div className="mt-3 text-sm text-neutral-300 whitespace-pre-wrap leading-relaxed">
-                                    {selectedNode.summary}
-                                </div>
-                            ) : (
-                                <div className="mt-3 text-sm text-neutral-500 italic">
-                                    No summary available yet.
-                                </div>
-                            )}
-                            {selectedNode.facts && selectedNode.facts.length > 0 && (
-                                <div className="mt-4">
-                                    <div className="font-medium text-white text-sm mb-2">Recent facts</div>
-                                    <ul className="space-y-2 text-sm text-neutral-400">
-                                        {selectedNode.facts.map((fact, idx) => (
-                                            <li key={`${selectedNode.id}-${idx}`} className="flex items-start gap-2">
-                                                <span className="text-cyan-400 mt-1">•</span>
-                                                <span>{fact}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="text-neutral-500 italic text-center py-4">
-                            Select a node to view details.
-                        </div>
+            {/* Details Panel - Fixed width */}
+            <div className="w-72 flex-shrink-0 overflow-y-auto flex flex-col gap-4">
+                <div className="relative rounded-xl border border-neutral-800 bg-neutral-900/80 backdrop-blur-xl p-6 overflow-hidden">
+                    {selectedNode && (
+                        <BorderBeam
+                            size={180}
+                            duration={5}
+                            borderWidth={1.5}
+                            className="from-purple-500/50 via-cyan-500/50 to-purple-500/50"
+                        />
                     )}
+
+                    <AnimatePresence mode="wait">
+                        {selectedNode ? (
+                            <motion.div
+                                key={selectedNode.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2 }}
+                                className="relative z-10 space-y-4"
+                            >
+                                <h3 className="font-bold text-lg text-white">
+                                    {selectedNode.name}
+                                </h3>
+
+                                <span
+                                    className="inline-block px-3 py-1 rounded-full text-xs font-medium border"
+                                    style={{
+                                        marginBottom: 4, 
+                                        marginTop: 4,
+                                        backgroundColor: `${getTypeColor(selectedNode.type || 'Unknown')}20`,
+                                        borderColor: `${getTypeColor(selectedNode.type || 'Unknown')}50`,
+                                        color: getTypeColor(selectedNode.type || 'Unknown'),
+                                    }}
+                                >
+                                    {selectedNode.type || 'Unknown'}
+                                </span>
+
+                                <div className="flex gap-4 text-xs" style={{marginBottom: 4, marginTop: 4}}>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                                        <span className="text-neutral-400">{selectedNode.fact_count} facts</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                        <span className="text-neutral-400">{selectedNode.session_count} sessions</span>
+                                    </div>
+                                </div>
+
+                                {selectedNode.summary ? (
+                                    <div className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700/50">
+                                        <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
+                                            {selectedNode.summary}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 rounded-lg bg-neutral-800/30 border border-neutral-700/30 border-dashed">
+                                        <p className="text-sm text-neutral-500 italic">No summary available.</p>
+                                    </div>
+                                )}
+
+                                {selectedNode.facts && selectedNode.facts.length > 0 && (
+                                    <div
+                                    style={{marginBottom: 4, marginTop: 4}}
+                                    >
+                                        <h4 className="text-xs font-medium text-neutral-400 mb-3 uppercase tracking-wide">
+                                            Recent Facts
+                                        </h4>
+                                        <ul className="space-y-3">
+                                            {selectedNode.facts.slice(0, 5).map((fact, idx) => (
+                                                <motion.li
+                                                    key={`fact-${idx}`}
+                                                    initial={{ opacity: 0, x: -5 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: idx * 0.05 }}
+                                                    className="flex items-start gap-2 text-xs text-neutral-400"
+                                                >
+                                                    <span className="text-purple-400 mt-0.5 min-w-[3px]">•</span>
+                                                    <span className="leading-relaxed">{fact}</span>
+                                                </motion.li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="empty"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="text-center py-8"
+                            >
+                                <div className={cn(
+                                    "w-14 h-14 rounded-2xl mx-auto mb-4",
+                                    "bg-gradient-to-br from-purple-500/10 via-cyan-500/10 to-purple-500/10",
+                                    "border border-purple-500/20",
+                                    "flex items-center justify-center",
+                                    "shadow-lg shadow-purple-500/5"
+                                )}>
+                                    <svg className="w-7 h-7 text-purple-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                </div>
+                                <p className="text-neutral-400 text-sm font-medium mb-1">Select a node to view details</p>
+                                <p className="text-neutral-600 text-xs">Click any entity in the graph</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                {/* Type Legend */}
+                <div className="p-4 rounded-xl border border-neutral-800 bg-neutral-900/50">
+                    <h4 className="text-xs font-medium text-neutral-500 mb-3 uppercase tracking-wide">Entity Types</h4>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {Object.entries(typeColors).slice(0, 6).map(([type, color]) => (
+                            <div key={type} className="flex items-center gap-2.5 text-xs">
+                                <span
+                                    className="w-2.5 h-2.5 rounded-full ring-2 ring-offset-1 ring-offset-neutral-900"
+                                    style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}40` }}
+                                />
+                                <span className="text-neutral-400">{type}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
