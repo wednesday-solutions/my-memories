@@ -31,15 +31,15 @@ export function MemoryChat({ appName }: MemoryChatProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const markdownComponents = {
-    p: ({ children }: { children: ReactNode }) => (
+    p: ({ children }: { children?: ReactNode }) => (
       <p style={{ margin: 0 }}>{children}</p>
     ),
-    a: ({ href, children }: { href?: string; children: ReactNode }) => (
+    a: ({ href, children }: { href?: string; children?: ReactNode }) => (
       <a href={href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
         {children}
       </a>
     ),
-    code: ({ inline, children }: { inline?: boolean; children: ReactNode }) => (
+    code: ({ inline, children }: { inline?: boolean; children?: ReactNode }) => (
       <code
         style={{
           background: 'rgba(255,255,255,0.08)',
@@ -54,10 +54,11 @@ export function MemoryChat({ appName }: MemoryChatProps) {
         {children}
       </code>
     ),
-    pre: ({ children }: { children: ReactNode }) => (
+    pre: ({ children }: { children?: ReactNode }) => (
       <pre style={{ margin: 0 }}>{children}</pre>
     )
   };
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -18,7 +18,7 @@ export class VisionService {
             // Fetch sources - note that 'thumbnailSize' determines the resolution of the screenshot.
             const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 1920, height: 1080 } });
             
-            let targetSource = undefined;
+            let targetSource: Electron.DesktopCapturerSource | undefined = undefined;
 
             if (windowTitle) {
                 // Exact title match is best for the active window
@@ -42,6 +42,7 @@ export class VisionService {
                 console.log(`Vision: No window found matching ${appName} / ${windowTitle}`);
                 return null;
             }
+
 
             // Verify it is likely the right one? 
             // If we matched by title given by the accessibility API, we are reasonably confident.

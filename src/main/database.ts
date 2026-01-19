@@ -332,7 +332,7 @@ export function checkMessageExists(hash: string, conversationId: string): boolea
 }
 
 // Deprecated: old check
-export function checkMemoryExists(content: string, sessionId: string): boolean {
+export function checkMemoryExists(_content: string, _sessionId: string): boolean {
     // Forward to new check logic if we want, or keep it for legacy?
     // We will use checkMessageExists for new flow.
     return false; 

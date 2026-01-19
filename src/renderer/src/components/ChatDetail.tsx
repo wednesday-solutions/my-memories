@@ -21,15 +21,15 @@ export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
     const [loading, setLoading] = useState(false);
 
     const markdownComponents = {
-        p: ({ children }: { children: ReactNode }) => (
+        p: ({ children }: { children?: ReactNode }) => (
             <p style={{ margin: 0 }}>{children}</p>
         ),
-        a: ({ href, children }: { href?: string; children: ReactNode }) => (
+        a: ({ href, children }: { href?: string; children?: ReactNode }) => (
             <a href={href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
                 {children}
             </a>
         ),
-        code: ({ inline, children }: { inline?: boolean; children: ReactNode }) => (
+        code: ({ inline, children }: { inline?: boolean; children?: ReactNode }) => (
             <code
                 style={{
                     background: 'rgba(255,255,255,0.08)',
@@ -44,10 +44,11 @@ export function ChatDetail({ sessionId, onBack }: ChatDetailProps) {
                 {children}
             </code>
         ),
-        pre: ({ children }: { children: ReactNode }) => (
+        pre: ({ children }: { children?: ReactNode }) => (
             <pre style={{ margin: 0 }}>{children}</pre>
         )
     };
+
 
     useEffect(() => {
         const fetchDetails = async () => {

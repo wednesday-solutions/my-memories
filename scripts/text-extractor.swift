@@ -137,12 +137,76 @@ func getSemanticRoleForClaude(element: AXUIElement) -> String {
     return "USER"
 }
 
+/// Check if element is inside a navigation/sidebar area (for ChatGPT)
+func isInNavigationArea(element: AXUIElement, maxDepth: Int) -> Bool {
+    var current = element
+    var depth = 0
+    while depth < maxDepth {
+        var role: AnyObject?
+        AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &role)
+        if let strRole = role as? String {
+            // Navigation elements
+            if strRole == "AXNavigation" || strRole == "AXLandmarkNavigation" {
+                return true
+            }
+        }
+        
+        // Check DOM classes for nav/sidebar indicators
+        var classList: AnyObject?
+        AXUIElementCopyAttributeValue(current, "AXDOMClassList" as CFString, &classList)
+        if let classes = classList as? [String] {
+            // ChatGPT uses these classes for sidebar
+            if classes.contains(where: { 
+                $0.lowercased().contains("sidebar") || 
+                $0.lowercased().contains("navigation") || 
+                $0.lowercased().contains("nav-") ||
+                $0.lowercased() == "nav" ||
+                $0.lowercased().contains("history") ||
+                $0.lowercased().contains("chat-list") ||
+                $0.lowercased().contains("conversation-list")
+            }) {
+                return true
+            }
+        }
+        
+        // Check role description
+        var roleDesc: AnyObject?
+        AXUIElementCopyAttributeValue(current, kAXRoleDescriptionAttribute as CFString, &roleDesc)
+        if let desc = roleDesc as? String {
+            let lower = desc.lowercased()
+            if lower.contains("navigation") {
+                return true
+            }
+        }
+        
+        var parent: AnyObject?
+        AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parent)
+        if let parentElem = parent, CFGetTypeID(parentElem) == AXUIElementGetTypeID() {
+            current = parentElem as! AXUIElement
+        } else {
+            break
+        }
+        depth += 1
+    }
+    return false
+}
+
 func getSemanticRoleForChatGPT(element: AXUIElement) -> String {
     var currentElement = element
     var depth = 0
     var hasAssistantClass = false
     var hasUserClass = false
     var isUIElement = false
+    
+    // CHECK: If element is in navigation/sidebar area, it's noise
+    if isInNavigationArea(element: element, maxDepth: 15) {
+        return "NOISE"
+    }
+    
+    // CHECK: If element is in a list container (sidebar chat list), it's noise
+    if isInListContainer(element: element, maxDepth: 15) {
+        return "NOISE"
+    }
 
     // Check the element's own role first
     var role: AnyObject?
@@ -214,6 +278,7 @@ func getSemanticRoleForChatGPT(element: AXUIElement) -> String {
     // Fallback: treat as user content to preserve chat text if role markers are missing
     return "USER"
 }
+
 
 func getSemanticRoleForGemini(element: AXUIElement) -> String {
     var currentElement = element
