@@ -87,8 +87,8 @@ export function EntityGraph({ appName }: EntityGraphProps) {
         );
 
         const edges = new DataSet<{ id: string; from: number; to: number; value: number; label?: string }>(
-            graph.edges.map(e => ({
-                id: `${e.source}-${e.target}`,
+            graph.edges.map((e, idx) => ({
+                id: `${e.source}-${e.target}-${e.type}-${e.updated_at ?? ''}-${idx}`,
                 from: e.source,
                 to: e.target,
                 value: e.weight,

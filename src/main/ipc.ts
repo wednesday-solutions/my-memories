@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
@@ -134,28 +134,31 @@ export async function evaluateAndStoreMemoryForMessage(params: {
     const text = (params.content || '').trim();
     if (!text || isTrivialMessage(text)) return;
 
-    const prompt = `You are a memory filter. Decide if the following single message should be saved as long-term memory.
+        const prompt = `You are a strict memory filter. Decide if the following single message should be saved as LONG-TERM memory that a user would want in future chats.
 
-Store ONLY durable, useful information such as:
+Store ONLY durable, user-relevant information such as:
 - Stable personal preferences or profile facts
-- Project details, specs, or requirements
+- Ongoing projects, specs, requirements, or architecture choices
 - Decisions made or commitments
 - Important instructions or constraints
-- Long-term plans or schedules
-- Key factual statements about entities or systems
+- Long-term plans, schedules, or goals
+- Key factual statements about important entities the user is likely to reference later
 
 Do NOT store:
 - Greetings, small talk, or pleasantries
-- Generic troubleshooting steps or ephemeral details
-- Redundant or obvious facts
+- One-off troubleshooting steps or ephemeral details
+- Generic statements or common knowledge
+- Redundant facts already implied by the message itself
 - Speculation or unverified claims
+- Anything that won’t matter in future conversations
 
-If the role is 'assistant', store only if it contains verified facts stated by the user or decisions made by the user.
+If the role is 'assistant', store ONLY if it repeats a verified user fact or a decision the user made.
+If unsure, set store to false.
 
 Return JSON ONLY with this shape:
 {
-  "store": boolean,
-  "memory": "short standalone statement suitable for future retrieval"
+    "store": boolean,
+    "memory": "short standalone statement suitable for future retrieval"
 }
 
 Role: ${role}
@@ -169,6 +172,8 @@ JSON:`;
         if (!parsed.store) return;
         const memoryText = (parsed.memory || '').trim();
         if (!memoryText) return;
+        if (memoryText.split(/\s+/).length < 4) return;
+        if (memoryText.length > 280) return;
 
         await insertMemoryRecord({
             content: memoryText,
@@ -183,31 +188,32 @@ JSON:`;
 }
 
 async function extractEntitiesForSession(sessionId: string): Promise<void> {
-    const memories = getMemoriesForSession(sessionId);
-    if (!memories || memories.length === 0) return;
+        const memories = getMemoryRecordsForSession(sessionId);
+        if (!memories || memories.length === 0) return;
 
-    const conversationText = memories.map((m: any) => `[${m.role || 'unknown'}]: ${m.content}`).join('\n');
-    const prompt = `You are extracting entities from a conversation to build long-term entity memory.
+        const memoryText = memories.map((m: any) => `- ${m.content}`).join('\n');
+        const prompt = `You are extracting entities from long-term memory statements. Only keep entities worth remembering for future chats.
 
 Return JSON only with this shape:
 {
-  "entities": [
-    {
-      "name": "string",
-      "type": "Person | Organization | Product | Place | Object | Project | Concept | Event | Other",
-      "facts": ["short factual statements about the entity"]
-    }
-  ]
+    "entities": [
+        {
+            "name": "string",
+            "type": "Person | Organization | Product | Place | Object | Project | Concept | Event | Other",
+            "facts": ["short factual statements about the entity"]
+        }
+    ]
 }
 
 Rules:
-- Only include entities that are explicitly mentioned.
-- Normalize names (no extra whitespace).
-- Facts must be concise and specific.
-- If no entities, return {"entities": []}.
+- Only include entities explicitly mentioned in the memory statements.
+- Include ONLY entities that are likely to be referenced again (user-relevant people, projects, products, places, or systems).
+- Exclude generic tools, common technologies, or incidental mentions unless they are clearly tied to the user’s ongoing work or preferences.
+- Facts must be concise, specific, and durable.
+- If no entities meet the criteria, return {"entities": []}.
 
-Conversation:
-${conversationText}
+Memory statements:
+${memoryText}
 
 JSON:`;
 
@@ -224,6 +230,9 @@ JSON:`;
             if (!name) continue;
             const type = (entity.type || 'Unknown').trim() || 'Unknown';
             const facts = Array.isArray(entity.facts) ? entity.facts.filter(Boolean).map(f => f.trim()).filter(Boolean) : [];
+
+            if (name.length < 2) continue;
+            if (facts.length === 0) continue;
 
             const entityId = upsertEntity(name, type);
             if (!entityId) continue;

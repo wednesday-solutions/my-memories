@@ -318,6 +318,12 @@ export function getMemoriesForSession(sessionId: string, limit: number = 200) {
     return messages;
 }
 
+  export function getMemoryRecordsForSession(sessionId: string, limit: number = 200) {
+    const db = getDB();
+    const stmt = db.prepare('SELECT * FROM memories WHERE session_id = ? ORDER BY created_at ASC LIMIT ?');
+    return stmt.all(sessionId, limit);
+  }
+
 export function checkMessageExists(hash: string, conversationId: string): boolean {
     const db = getDB();
     const stmt = db.prepare('SELECT id FROM messages WHERE conversation_id = ? AND hash = ? LIMIT 1');
