@@ -1,5 +1,18 @@
 /// <reference types="vite/client" />
 
+interface UserProfile {
+  role?: string;
+  companySize?: string;
+  aiUsageFrequency?: string;
+  primaryTools?: string[];
+  painPoints?: string[];
+  primaryUseCase?: string;
+  privacyConcern?: string;
+  expectedBenefit?: string;
+  referralSource?: string;
+  completedAt?: string;
+}
+
 interface DashboardStats {
   totalChats: number;
   totalMemories: number;
@@ -75,6 +88,10 @@ interface IElectronAPI {
   rebuildEntityGraph: () => Promise<boolean>
   deleteEntity: (entityId: number) => Promise<boolean>
   deleteMemory: (memoryId: number) => Promise<boolean>
+  
+  // User Profile
+  getUserProfile: () => Promise<UserProfile | null>
+  saveUserProfile: (profile: UserProfile) => Promise<boolean>
   
   onWatcherData: (callback: (data: any) => void) => () => void
   onPermissionDenied: (callback: () => void) => () => void

@@ -259,6 +259,16 @@ export function getDB() {
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_memories_message_id ON memories(message_id)');
 
+  // User Profile Table - stores onboarding questionnaire data as JSON
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      data TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   return db;
 }
 
@@ -913,4 +923,43 @@ export function getDashboardStats(): DashboardStats {
         appDistribution,
         activityByDay,
     };
+}
+
+// === USER PROFILE ===
+
+export interface UserProfile {
+    role?: string;
+    companySize?: string;
+    aiUsageFrequency?: string;
+    primaryTools?: string[];
+    painPoints?: string[];
+    primaryUseCase?: string;
+    privacyConcern?: string;
+    expectedBenefit?: string;
+    referralSource?: string;
+    completedAt?: string;
+}
+
+export function getUserProfile(): UserProfile | null {
+    const db = getDB();
+    const row = db.prepare('SELECT data FROM user_profile WHERE id = 1').get() as { data: string } | undefined;
+    if (!row) return null;
+    try {
+        return JSON.parse(row.data) as UserProfile;
+    } catch {
+        return null;
+    }
+}
+
+export function saveUserProfile(profile: UserProfile): void {
+    const db = getDB();
+    const now = new Date().toISOString();
+    const dataWithTimestamp = { ...profile, completedAt: now };
+    const json = JSON.stringify(dataWithTimestamp);
+    
+    db.prepare(`
+        INSERT INTO user_profile (id, data, updated_at)
+        VALUES (1, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET data = ?, updated_at = ?
+    `).run(json, now, json, now);
 }

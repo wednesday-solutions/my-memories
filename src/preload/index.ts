@@ -34,6 +34,10 @@ try {
     deleteEntity: (entityId: number) => ipcRenderer.invoke('db:delete-entity', entityId),
     deleteMemory: (memoryId: number) => ipcRenderer.invoke('db:delete-memory', memoryId),
     
+    // User Profile
+    getUserProfile: () => ipcRenderer.invoke('db:get-user-profile'),
+    saveUserProfile: (profile: any) => ipcRenderer.invoke('db:save-user-profile', profile),
+    
     // Watcher Events
     onWatcherData: (callback: (data: any) => void) => {
       const subscription = (_: any, data: any) => callback(data)

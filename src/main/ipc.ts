@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats, getUserProfile, saveUserProfile, UserProfile } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
@@ -681,5 +681,16 @@ Answer:`;
 
   ipcMain.handle('db:regenerate-master-memory', async () => {
       return await regenerateMasterMemory();
+  });
+
+  // User Profile handlers
+  ipcMain.handle('db:get-user-profile', () => {
+      return getUserProfile();
+  });
+
+  ipcMain.handle('db:save-user-profile', (_, profile: UserProfile) => {
+      saveUserProfile(profile);
+      console.log('[IPC] User profile saved:', profile);
+      return true;
   });
 }

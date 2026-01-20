@@ -5,6 +5,7 @@ import { OrbitingCircles } from './ui/orbiting-circles';
 import { StarsBackground } from './ui/stars-background';
 import { BorderBeam } from './ui/border-beam';
 import { cn } from '@renderer/lib/utils';
+import { UserQuestionnaire } from './UserQuestionnaire';
 
 import { ArrowRight, Check, Brain, Database, Network, MessageSquare } from 'lucide-react';
 
@@ -122,15 +123,42 @@ const steps = [
 
 export function Onboarding({ onComplete }: OnboardingProps) {
     const [currentStep, setCurrentStep] = useState(0);
+    const [showQuestionnaire, setShowQuestionnaire] = useState(false);
 
     const handleNext = () => {
         if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
         } else {
-            localStorage.setItem('onboarding_completed', 'true');
-            onComplete();
+            // After main onboarding, show the questionnaire
+            setShowQuestionnaire(true);
         }
     };
+
+    const handleQuestionnaireComplete = async (profile: any) => {
+        try {
+            await window.api.saveUserProfile(profile);
+            console.log('User profile saved:', profile);
+        } catch (e) {
+            console.error('Failed to save user profile:', e);
+        }
+        localStorage.setItem('onboarding_completed', 'true');
+        onComplete();
+    };
+
+    const handleQuestionnaireSkip = () => {
+        localStorage.setItem('onboarding_completed', 'true');
+        onComplete();
+    };
+
+    // Show questionnaire after main onboarding
+    if (showQuestionnaire) {
+        return (
+            <UserQuestionnaire 
+                onComplete={handleQuestionnaireComplete}
+                onSkip={handleQuestionnaireSkip}
+            />
+        );
+    }
 
     return (
         <div className="fixed inset-0 overflow-hidden bg-neutral-950">
@@ -348,7 +376,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     </motion.div>
                 )}
 
-                {/* Step 3: Ready */}
+                {/* Step 3: Ready - Transition to Questionnaire */}
                 {currentStep === 3 && (
                     <motion.div
                         key="step-3"
@@ -388,28 +416,40 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                             {/* Ready message */}
                             <div className="mb-4">
                                 <TextGenerate 
-                                    words="You're all set" 
+                                    words="Almost there" 
                                     className="text-4xl md:text-5xl font-light text-white tracking-tight"
                                     delay={0.4}
                                 />
                             </div>
                             
-                            <div className="mb-12">
+                            <div className="mb-6">
                                 <TextGenerate 
-                                    words="Start using your AI assistants and watch your knowledge base grow" 
+                                    words="Help us personalize your experience with a few quick questions" 
                                     className="text-neutral-500"
                                     delay={0.8}
                                 />
                             </div>
 
-                            {/* Quick tips */}
+                            {/* Questionnaire info */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 1.2 }}
+                                className="mb-8"
+                            >
+                                <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-neutral-900/60 border border-neutral-800">
+                                    <span className="text-sm text-neutral-400">Takes less than 2 minutes</span>
+                                </div>
+                            </motion.div>
+
+                            {/* What we'll ask */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 1.4 }}
                                 className="flex flex-wrap items-center justify-center gap-4"
                             >
-                                {['Chats sync automatically', 'Search across all sources', 'Explore your knowledge graph'].map((tip) => (
+                                {['Your role', 'Tools you use', 'How we can help'].map((tip) => (
                                     <div key={tip} className="flex items-center gap-2 text-neutral-600">
                                         <div className="w-1 h-1 rounded-full bg-neutral-700" />
                                         <span className="text-sm">{tip}</span>
@@ -448,7 +488,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     className="flex items-center gap-2 px-8 py-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700 hover:text-white transition-all duration-200 group"
                 >
                     <span className="text-sm font-medium">
-                        {currentStep === steps.length - 1 ? 'Get Started' : 'Continue'}
+                        {currentStep === steps.length - 1 ? 'Continue to Questions' : 'Continue'}
                     </span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </motion.button>
