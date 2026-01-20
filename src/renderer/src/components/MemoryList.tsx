@@ -1,9 +1,10 @@
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { MasterMemoryModal } from './MasterMemory';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { BorderBeam } from './ui/border-beam';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
+import { cn } from '@renderer/lib/utils';
 
 interface Memory {
     id: number;
@@ -91,70 +92,70 @@ function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps
                 }}
             />
             <Item variant="outline" className="group hover:border-neutral-700 relative">
-            <ItemContent>
-                <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
-                        {memory.source_app}
-                    </span>
-                    <ItemTitle>Memory #{memory.id}</ItemTitle>
-                </div>
-                <ItemDescription className="text-neutral-400 line-clamp-2">
-                    {preview}
-                </ItemDescription>
-            </ItemContent>
+                <ItemContent>
+                    <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                            {memory.source_app}
+                        </span>
+                        <ItemTitle>Memory #{memory.id}</ItemTitle>
+                    </div>
+                    <ItemDescription className="text-neutral-400 line-clamp-2">
+                        {preview}
+                    </ItemDescription>
+                </ItemContent>
 
-            <ItemActions className="gap-3">
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                    <span>{formattedTime}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <div onClick={(e) => e.stopPropagation()}>
-                        <Modal>
-                            <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.6"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="h-4 w-4"
-                                >
-                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </svg>
-                            </ModalTrigger>
-                            <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
-                                <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
-                                    <div className="text-base font-semibold text-white">Memory</div>
-                                    <div className="mt-1 text-xs text-neutral-500">
-                                        {memory.source_app} • {formattedTime}
-                                    </div>
-                                    <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">
-                                        {memory.content}
-                                    </div>
-                                    <div className="mt-5 text-xs text-neutral-500">#{memory.id}</div>
-                                    <BorderBeam
-                                        duration={6}
-                                        size={380}
-                                        className="from-transparent via-cyan-500 to-transparent"
-                                    />
-                                </ModalContent>
-                            </ModalBody>
-                        </Modal>
+                <ItemActions className="gap-3">
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <span>{formattedTime}</span>
                     </div>
 
-                    <button
-                        onClick={(e) => onDelete(e, memory.id)}
-                        className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
-                        title="Delete"
-                    >
-                        ×
-                    </button>
-                </div>
-            </ItemActions>
-        </Item>
+                    <div className="flex items-center gap-2">
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <Modal>
+                                <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.6"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-4 w-4"
+                                    >
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                </ModalTrigger>
+                                <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
+                                    <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
+                                        <div className="text-base font-semibold text-white">Memory</div>
+                                        <div className="mt-1 text-xs text-neutral-500">
+                                            {memory.source_app} • {formattedTime}
+                                        </div>
+                                        <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">
+                                            {memory.content}
+                                        </div>
+                                        <div className="mt-5 text-xs text-neutral-500">#{memory.id}</div>
+                                        <BorderBeam
+                                            duration={6}
+                                            size={380}
+                                            className="from-transparent via-cyan-500 to-transparent"
+                                        />
+                                    </ModalContent>
+                                </ModalBody>
+                            </Modal>
+                        </div>
+
+                        <button
+                            onClick={(e) => onDelete(e, memory.id)}
+                            className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
+                            title="Delete"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </ItemActions>
+            </Item>
         </div>
     );
 }
@@ -163,8 +164,9 @@ export function MemoryList({ appName }: MemoryListProps) {
     const [memories, setMemories] = useState<Memory[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const fetchMemories = async () => {
+    const fetchMemories = useCallback(async () => {
         setLoading(true);
         try {
             // Fetch last 100 memories, filtered by app
@@ -175,11 +177,17 @@ export function MemoryList({ appName }: MemoryListProps) {
         } finally {
             setLoading(false);
         }
+    }, [appName]);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await fetchMemories();
+        setIsRefreshing(false);
     };
 
     useEffect(() => {
         fetchMemories();
-    }, [appName]);
+    }, [fetchMemories]);
 
     const filteredMemories = memories.filter(m =>
         m.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -257,6 +265,28 @@ export function MemoryList({ appName }: MemoryListProps) {
                             </ModalContent>
                         </ModalBody>
                     </Modal>
+
+                    {/* Refresh Button */}
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing || loading}
+                        className={cn(
+                            "h-[46px] w-[46px] rounded-xl border border-neutral-800 bg-neutral-900/80",
+                            "text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50",
+                            "flex items-center justify-center transition-all",
+                            (isRefreshing || loading) && "opacity-50 cursor-not-allowed"
+                        )}
+                        title="Refresh"
+                    >
+                        <svg
+                            className={cn("w-5 h-5", (isRefreshing || loading) && "animate-spin")}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
                 </div>
 
                 {loading && (

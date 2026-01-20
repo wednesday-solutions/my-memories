@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
 import { BorderBeam } from './ui/border-beam';
+import { cn } from '@renderer/lib/utils';
 
 interface ChatSession {
     session_id: string;
@@ -270,7 +271,9 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const fetchSessions = async () => {
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const fetchSessions = useCallback(async () => {
         setLoading(true);
         try {
             const data = await window.api.getChatSessions(appName);
@@ -280,11 +283,17 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
         } finally {
             setLoading(false);
         }
+    }, [appName]);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await fetchSessions();
+        setIsRefreshing(false);
     };
 
     useEffect(() => {
         fetchSessions();
-    }, [appName]);
+    }, [fetchSessions]);
 
     const handleDelete = async (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation();
@@ -315,9 +324,9 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
 
     return (
         <div className="h-full flex flex-col gap-4">
-            {/* Search Bar */}
-            <div>
-                <div className="relative">
+            {/* Search Bar with Refresh Button */}
+            <div className="flex items-center gap-3">
+                <div className="relative flex-1">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
@@ -329,6 +338,26 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
                         className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
                     />
                 </div>
+                <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing || loading}
+                    className={cn(
+                        "h-[46px] w-[46px] rounded-xl border border-neutral-800 bg-neutral-900/80",
+                        "text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50",
+                        "flex items-center justify-center transition-all",
+                        (isRefreshing || loading) && "opacity-50 cursor-not-allowed"
+                    )}
+                    title="Refresh"
+                >
+                    <svg
+                        className={cn("w-5 h-5", (isRefreshing || loading) && "animate-spin")}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
             </div>
 
             {loading && (

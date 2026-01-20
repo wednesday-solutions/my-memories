@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
@@ -318,10 +318,11 @@ export function EntityList({ appName }: EntityListProps) {
     const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
     const [details, setDetails] = useState<EntityDetails | null>(null);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const normalizeType = (value?: string) => (value || 'Unknown').trim() || 'Unknown';
 
-    const fetchEntities = async () => {
+    const fetchEntities = useCallback(async () => {
         setLoading(true);
         try {
             const data = await window.api.getEntities(appName);
@@ -334,6 +335,12 @@ export function EntityList({ appName }: EntityListProps) {
         } finally {
             setLoading(false);
         }
+    }, [appName, selectedEntityId]);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await fetchEntities();
+        setIsRefreshing(false);
     };
 
     const fetchDetails = async (entityId: number) => {
@@ -441,13 +448,35 @@ export function EntityList({ appName }: EntityListProps) {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className={cn(
-                                "w-full pl-11 pr-4 py-3 rounded-xl",
+                                "w-full pl-11 pr-12 py-3 rounded-xl",
                                 "bg-neutral-900/80 border border-neutral-800",
                                 "text-white text-sm placeholder-neutral-600",
                                 "focus:outline-none focus:border-purple-500/50",
                                 "transition-colors"
                             )}
                         />
+                        <button
+                            onClick={handleRefresh}
+                            disabled={isRefreshing || loading}
+                            className={cn(
+                                "absolute right-2 top-1/2 -translate-y-1/2",
+                                "h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900/80",
+                                "text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50",
+                                "flex items-center justify-center transition-all",
+                                (isRefreshing || loading) && "opacity-50 cursor-not-allowed",
+                                "z-20"
+                            )}
+                            title="Refresh"
+                        >
+                            <svg
+                                className={cn("w-4 h-4", (isRefreshing || loading) && "animate-spin")}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -463,7 +492,7 @@ export function EntityList({ appName }: EntityListProps) {
 
                 {/* Entity list with progressive blur */}
                 <div className="relative flex-1 min-h-0">
-                    <div className="absolute inset-0 overflow-y-auto pr-2 space-y-5 pb-24 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800">
+                    <div className="absolute inset-0 overflow-y-auto pr-2 space-y-5 pb-24 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800 relative">
                         <AnimatePresence mode="popLayout">
                             {filteredEntities.map((entity, index) => (
                                 <EntityCard
