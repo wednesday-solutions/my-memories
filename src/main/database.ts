@@ -757,3 +757,160 @@ export function deleteMemory(memoryId: number): boolean {
     console.log(`Deleted memory ${memoryId}, changes: ${info.changes}`);
     return info.changes > 0;
 }
+
+// === DASHBOARD STATS ===
+
+export interface DashboardStats {
+    totalChats: number;
+    totalMemories: number;
+    totalEntities: number;
+    totalRelationships: number;
+    totalMessages: number;
+    totalFacts: number;
+    recentChats: Array<{
+        session_id: string;
+        title: string | null;
+        app_name: string;
+        memory_count: number;
+        entity_count: number;
+        updated_at: string;
+    }>;
+    recentMemories: Array<{
+        id: number;
+        content: string;
+        source_app: string;
+        created_at: string;
+    }>;
+    topEntities: Array<{
+        id: number;
+        name: string;
+        type: string;
+        fact_count: number;
+        session_count: number;
+    }>;
+    entityTypeCounts: Array<{
+        type: string;
+        count: number;
+    }>;
+    appDistribution: Array<{
+        app_name: string;
+        chat_count: number;
+        memory_count: number;
+    }>;
+    activityByDay: Array<{
+        date: string;
+        chats: number;
+        memories: number;
+    }>;
+}
+
+export function getDashboardStats(): DashboardStats {
+    const db = getDB();
+
+    // Total counts
+    const totalChats = (db.prepare('SELECT COUNT(*) as count FROM conversations').get() as { count: number }).count;
+    const totalMemories = (db.prepare('SELECT COUNT(*) as count FROM memories').get() as { count: number }).count;
+    const totalEntities = (db.prepare('SELECT COUNT(*) as count FROM entities').get() as { count: number }).count;
+    const totalRelationships = (db.prepare('SELECT COUNT(*) as count FROM entity_edges').get() as { count: number }).count;
+    const totalMessages = (db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }).count;
+    const totalFacts = (db.prepare('SELECT COUNT(*) as count FROM entity_facts').get() as { count: number }).count;
+
+    // Today's activity
+    const todayChats = (db.prepare(`SELECT COUNT(*) as count FROM conversations WHERE date(updated_at) = date('now')`).get() as { count: number }).count;
+    const todayMemories = (db.prepare(`SELECT COUNT(*) as count FROM memories WHERE date(created_at) = date('now')`).get() as { count: number }).count;
+    const todayEntities = (db.prepare(`SELECT COUNT(*) as count FROM entities WHERE date(created_at) = date('now')`).get() as { count: number }).count;
+
+    // Recent chats (top 5)
+    const recentChats = db.prepare(`
+        SELECT 
+            c.id as session_id,
+            c.title,
+            c.app_name,
+            c.updated_at,
+            (SELECT COUNT(*) FROM memories m WHERE m.session_id = c.id) as memory_count,
+            (SELECT COUNT(DISTINCT es.entity_id) FROM entity_sessions es WHERE es.session_id = c.id) as entity_count
+        FROM conversations c
+        ORDER BY c.updated_at DESC
+        LIMIT 5
+    `).all() as DashboardStats['recentChats'];
+
+    // Recent memories (top 5)
+    const recentMemories = db.prepare(`
+        SELECT id, content, source_app, created_at
+        FROM memories
+        ORDER BY created_at DESC
+        LIMIT 5
+    `).all() as DashboardStats['recentMemories'];
+
+    // Top entities by fact count
+    const topEntities = db.prepare(`
+        SELECT 
+            e.id,
+            e.name,
+            e.type,
+            COUNT(DISTINCT f.id) as fact_count,
+            COUNT(DISTINCT es.session_id) as session_count
+        FROM entities e
+        LEFT JOIN entity_facts f ON f.entity_id = e.id
+        LEFT JOIN entity_sessions es ON es.entity_id = e.id
+        GROUP BY e.id
+        ORDER BY fact_count DESC
+        LIMIT 6
+    `).all() as DashboardStats['topEntities'];
+
+    // Entity type distribution
+    const entityTypeCounts = db.prepare(`
+        SELECT type, COUNT(*) as count
+        FROM entities
+        GROUP BY type
+        ORDER BY count DESC
+        LIMIT 8
+    `).all() as DashboardStats['entityTypeCounts'];
+
+    // App distribution
+    const appDistribution = db.prepare(`
+        SELECT 
+            COALESCE(c.app_name, 'Unknown') as app_name,
+            COUNT(DISTINCT c.id) as chat_count,
+            COUNT(DISTINCT m.id) as memory_count
+        FROM conversations c
+        LEFT JOIN memories m ON m.session_id = c.id
+        GROUP BY c.app_name
+        ORDER BY chat_count DESC
+    `).all() as DashboardStats['appDistribution'];
+
+    // Activity by day (last 14 days)
+    const activityByDay = db.prepare(`
+        WITH RECURSIVE dates(date) AS (
+            SELECT date('now', '-13 days')
+            UNION ALL
+            SELECT date(date, '+1 day')
+            FROM dates
+            WHERE date < date('now')
+        )
+        SELECT 
+            dates.date,
+            (SELECT COUNT(*) FROM conversations WHERE date(updated_at) = dates.date) as chats,
+            (SELECT COUNT(*) FROM memories WHERE date(created_at) = dates.date) as memories
+        FROM dates
+        ORDER BY dates.date ASC
+    `).all() as DashboardStats['activityByDay'];
+
+    return {
+        totalChats,
+        totalMemories,
+        totalEntities,
+        totalRelationships,
+        totalMessages,
+        totalFacts,
+        todayChats,
+        todayMemories,
+        todayEntities,
+        recentChats,
+        recentMemories,
+        topEntities,
+        entityTypeCounts,
+        appDistribution,
+        activityByDay,
+    };
+}

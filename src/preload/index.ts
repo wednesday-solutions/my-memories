@@ -8,6 +8,7 @@ try {
     addMemory: (content: string, source?: string) => ipcRenderer.invoke('db:add-memory', content, source),
     searchMemories: (query: string) => ipcRenderer.invoke('db:search-memories', query),
     getStats: () => ipcRenderer.invoke('db:get-stats'),
+    getDashboardStats: () => ipcRenderer.invoke('db:get-dashboard-stats'),
     extractMemory: (text: string) => ipcRenderer.invoke('llm:extract', text),
     
     // Chat Summaries

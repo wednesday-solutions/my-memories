@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { MasterMemoryModal } from './MasterMemory';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { BorderBeam } from './ui/border-beam';
+import { ProgressiveBlur } from './ui/progressive-blur';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
 import { cn } from '@renderer/lib/utils';
 
@@ -65,30 +66,26 @@ function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps
             onPointerEnter={handlePointerEnter}
             onPointerLeave={handlePointerLeave}
         >
-            {/* Glare/Shimmer overlay */}
+            {/* Glare overlay */}
             <div
                 className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
                 style={{
-                    background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.4) 0%, rgba(120,200,255,0.2) 25%, rgba(255,255,255,0) 60%)`,
+                    background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 70%)`,
                     opacity: glareStyle.opacity,
                 }}
             />
-            {/* Rainbow shimmer effect */}
+            {/* Subtle shimmer effect */}
             <div
-                className="pointer-events-none absolute inset-0 z-10 mix-blend-color-dodge transition-opacity duration-300"
+                className="pointer-events-none absolute inset-0 z-10 mix-blend-overlay transition-opacity duration-300"
                 style={{
                     background: `
                         radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, 
-                            rgba(255,119,115,0.15) 0%,
-                            rgba(255,237,95,0.1) 15%,
-                            rgba(168,255,95,0.1) 30%,
-                            rgba(131,255,247,0.1) 45%,
-                            rgba(120,148,255,0.1) 60%,
-                            rgba(216,117,255,0.1) 75%,
-                            transparent 90%
+                            rgba(255,255,255,0.08) 0%,
+                            rgba(255,255,255,0.04) 40%,
+                            transparent 70%
                         )
                     `,
-                    opacity: glareStyle.opacity * 2,
+                    opacity: glareStyle.opacity * 1.5,
                 }}
             />
             <Item variant="outline" className="group hover:border-neutral-700 relative">
@@ -139,7 +136,7 @@ function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps
                                         <BorderBeam
                                             duration={6}
                                             size={380}
-                                            className="from-transparent via-cyan-500 to-transparent"
+                                            className="from-transparent via-neutral-500 to-transparent"
                                         />
                                     </ModalContent>
                                 </ModalBody>
@@ -224,13 +221,13 @@ export function MemoryList({ appName }: MemoryListProps) {
                             placeholder="Search memories..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 transition-colors"
                         />
                     </div>
 
                     {/* Master Memory Icon Button */}
                     <Modal>
-                        <ModalTrigger className="h-[46px] w-[46px] rounded-xl border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50 p-0 flex items-center justify-center transition-colors group">
+                        <ModalTrigger className="h-[46px] w-[46px] rounded-xl border border-neutral-800 bg-neutral-900/80 text-neutral-400 hover:text-white hover:border-neutral-600 p-0 flex items-center justify-center transition-colors group">
                             <svg
                                 viewBox="0 0 24 24"
                                 fill="none"
@@ -252,13 +249,13 @@ export function MemoryList({ appName }: MemoryListProps) {
                                 delay={1}
                                 size={400}
                                 borderWidth={2}
-                                className="from-transparent via-blue-500 to-transparent"
+                                className="from-transparent via-neutral-500 to-transparent"
                             />
                             <BorderBeam
                                 duration={4}
                                 size={400}
                                 borderWidth={2}
-                                className="from-transparent via-cyan-500 to-transparent"
+                                className="from-transparent via-neutral-600 to-transparent"
                             />
                             <ModalContent className="p-6">
                                 <MasterMemoryModal />
@@ -272,7 +269,7 @@ export function MemoryList({ appName }: MemoryListProps) {
                         disabled={isRefreshing || loading}
                         className={cn(
                             "h-[46px] w-[46px] rounded-xl border border-neutral-800 bg-neutral-900/80",
-                            "text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50",
+                            "text-neutral-400 hover:text-white hover:border-neutral-600",
                             "flex items-center justify-center transition-all",
                             (isRefreshing || loading) && "opacity-50 cursor-not-allowed"
                         )}
@@ -291,31 +288,41 @@ export function MemoryList({ appName }: MemoryListProps) {
 
                 {loading && (
                     <div className="flex items-center justify-center py-8">
-                        <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-6 h-6 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin" />
                     </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto">
-                    <ItemGroup>
-                        {filteredMemories.map(memory => (
-                            <MemoryListItem
-                                key={memory.id}
-                                memory={memory}
-                                formattedTime={formatTime(memory.created_at)}
-                                onDelete={handleDeleteMemory}
-                            />
-                        ))}
-                    </ItemGroup>
+                <div className="relative flex-1 min-h-0">
+                    <div className="absolute inset-0 overflow-y-auto pb-16">
+                        <ItemGroup>
+                            {filteredMemories.map(memory => (
+                                <MemoryListItem
+                                    key={memory.id}
+                                    memory={memory}
+                                    formattedTime={formatTime(memory.created_at)}
+                                    onDelete={handleDeleteMemory}
+                                />
+                            ))}
+                        </ItemGroup>
 
-                    {!loading && filteredMemories.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <div className="w-16 h-16 rounded-2xl bg-neutral-800 flex items-center justify-center mb-4">
-                                <svg className="w-8 h-8 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
+                        {!loading && filteredMemories.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-neutral-800 flex items-center justify-center mb-4">
+                                    <svg className="w-8 h-8 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                                </div>
+                                <p className="text-neutral-500">No memories found</p>
                             </div>
-                            <p className="text-neutral-500">No memories found</p>
-                        </div>
+                        )}
+                    </div>
+                    
+                    {filteredMemories.length > 3 && (
+                        <ProgressiveBlur
+                            height="80px"
+                            position="bottom"
+                            className="pointer-events-none"
+                        />
                     )}
                 </div>
             </div>
