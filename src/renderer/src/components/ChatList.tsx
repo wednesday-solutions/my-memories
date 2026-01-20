@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -23,12 +24,13 @@ interface ChatListProps {
 
 interface ChatListItemProps {
     session: ChatSession;
+    index: number;
     formattedTime: string;
     onSelect: (sessionId: string) => void;
     onDelete: (e: React.MouseEvent, sessionId: string) => void;
 }
 
-function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListItemProps) {
+function ChatListItem({ session, index, formattedTime, onSelect, onDelete }: ChatListItemProps) {
     const firstDashIndex = session.session_id.indexOf('-');
     const modelName = firstDashIndex > 0 ? session.session_id.slice(0, firstDashIndex) : undefined;
     const chatTitleRaw = firstDashIndex > 0 ? session.session_id.slice(firstDashIndex + 1) : session.session_id;
@@ -118,7 +120,12 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
     };
 
     return (
-        <>
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, delay: index * 0.05 }}
+        >
             {/* 3D transformed card container */}
             <div
                 ref={containerRef}
@@ -260,7 +267,7 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                     </ItemActions>
                 </Item>
             </div>
-        </>
+        </motion.div>
     );
 }
 
@@ -366,15 +373,18 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
             <div className="relative flex-1 min-h-0">
                 <div className="absolute inset-0 overflow-y-auto pb-16">
                     <ItemGroup>
-                        {filteredSessions.map(session => (
-                            <ChatListItem
-                                key={session.session_id}
-                                session={session}
-                                formattedTime={formatTime(session.last_activity)}
-                                onSelect={onSelectSession}
-                                onDelete={handleDelete}
-                            />
-                        ))}
+                        <AnimatePresence mode="popLayout">
+                            {filteredSessions.map((session, index) => (
+                                <ChatListItem
+                                    key={session.session_id}
+                                    session={session}
+                                    index={index}
+                                    formattedTime={formatTime(session.last_activity)}
+                                    onSelect={onSelectSession}
+                                    onDelete={handleDelete}
+                                />
+                            ))}
+                        </AnimatePresence>
                     </ItemGroup>
 
                     {!loading && filteredSessions.length === 0 && (

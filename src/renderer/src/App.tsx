@@ -31,6 +31,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedMemoryId, setSelectedMemoryId] = useState<number | null>(null);
+  const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check onboarding status on mount
@@ -80,6 +82,24 @@ function App() {
 
   const handleBack = () => {
     setSelectedSessionId(null);
+    setSelectedMemoryId(null);
+    setSelectedEntityId(null);
+  };
+
+  // Navigation handlers for Dashboard and MemoryChat
+  const handleSelectChat = (sessionId: string) => {
+    setViewMode('chats');
+    setSelectedSessionId(sessionId);
+  };
+
+  const handleSelectMemory = (memoryId: number) => {
+    setViewMode('memories');
+    setSelectedMemoryId(memoryId);
+  };
+
+  const handleSelectEntity = (entityId: number) => {
+    setViewMode('entities');
+    setSelectedEntityId(entityId);
   };
 
   // Global keyboard shortcut for back navigation (Cmd+[)
@@ -87,14 +107,16 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '[') {
         e.preventDefault();
-        if (selectedSessionId) {
+        if (selectedSessionId || selectedMemoryId || selectedEntityId) {
           setSelectedSessionId(null);
+          setSelectedMemoryId(null);
+          setSelectedEntityId(null);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedSessionId]);
+  }, [selectedSessionId, selectedMemoryId, selectedEntityId]);
 
   // Show loading state while checking onboarding status
   if (hasCompletedOnboarding === null) {
@@ -147,7 +169,7 @@ function App() {
                 {navItems.map((item) => (
                   <button
                     key={item.view}
-                    onClick={() => { setViewMode(item.view); setSelectedSessionId(null); }}
+                    onClick={() => { setViewMode(item.view); setSelectedSessionId(null); setSelectedMemoryId(null); setSelectedEntityId(null); }}
                     className={cn(
                       "flex items-center gap-2 py-2 px-2 rounded-lg transition-colors group/sidebar",
                       viewMode === item.view
@@ -179,7 +201,7 @@ function App() {
             {TABS.map(tab => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedSessionId(null); }}
+                onClick={() => { setActiveTab(tab); setSelectedSessionId(null); setSelectedMemoryId(null); setSelectedEntityId(null); }}
                 className={cn(
                   "relative px-4 py-2 rounded-full text-sm font-medium transition-all",
                   activeTab === tab
@@ -214,12 +236,13 @@ function App() {
               <ChatDetail
                 sessionId={selectedSessionId}
                 onBack={handleBack}
-                onSelectEntity={(_entityId) => {
-                  // Navigate to entities view - the EntityList will need to handle selecting the specific entity
+                onSelectEntity={(entityId) => {
+                  setSelectedEntityId(entityId);
                   setViewMode('entities');
                   setSelectedSessionId(null);
                 }}
-                onSelectMemory={(_memoryId) => {
+                onSelectMemory={(memoryId) => {
+                  setSelectedMemoryId(memoryId);
                   setViewMode('memories');
                   setSelectedSessionId(null);
                 }}
@@ -235,15 +258,25 @@ function App() {
                 className="p-6 h-full overflow-y-auto"
               >
                 {viewMode === 'dashboard' ? (
-                  <Dashboard appName={activeTab} />
+                  <Dashboard 
+                    appName={activeTab} 
+                    onSelectChat={handleSelectChat}
+                    onSelectMemory={handleSelectMemory}
+                    onSelectEntity={handleSelectEntity}
+                  />
                 ) : viewMode === 'memory-chat' ? (
-                  <MemoryChat appName={activeTab} />
+                  <MemoryChat 
+                    appName={activeTab} 
+                    onNavigateToMemory={handleSelectMemory}
+                    onNavigateToChat={handleSelectChat}
+                    onNavigateToEntity={handleSelectEntity}
+                  />
                 ) : viewMode === 'chats' ? (
                   <ChatList appName={activeTab} onSelectSession={setSelectedSessionId} />
                 ) : viewMode === 'memories' ? (
-                  <MemoryList appName={activeTab} />
+                  <MemoryList appName={activeTab} selectedMemoryId={selectedMemoryId} onClearSelection={() => setSelectedMemoryId(null)} />
                 ) : viewMode === 'entities' ? (
-                  <EntityList appName={activeTab} />
+                  <EntityList appName={activeTab} selectedEntityId={selectedEntityId} onClearSelection={() => setSelectedEntityId(null)} />
                 ) : (
                   <EntityGraph appName={activeTab} />
                 )}

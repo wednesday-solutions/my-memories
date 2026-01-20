@@ -815,10 +815,10 @@ export function getDashboardStats(): DashboardStats {
     const totalMessages = (db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }).count;
     const totalFacts = (db.prepare('SELECT COUNT(*) as count FROM entity_facts').get() as { count: number }).count;
 
-    // Today's activity
-    const todayChats = (db.prepare(`SELECT COUNT(*) as count FROM conversations WHERE date(updated_at) = date('now')`).get() as { count: number }).count;
-    const todayMemories = (db.prepare(`SELECT COUNT(*) as count FROM memories WHERE date(created_at) = date('now')`).get() as { count: number }).count;
-    const todayEntities = (db.prepare(`SELECT COUNT(*) as count FROM entities WHERE date(created_at) = date('now')`).get() as { count: number }).count;
+    // Today's activity (convert stored timestamps to localtime before comparing)
+    const todayChats = (db.prepare(`SELECT COUNT(*) as count FROM conversations WHERE date(updated_at, 'localtime') = date('now', 'localtime')`).get() as { count: number }).count;
+    const todayMemories = (db.prepare(`SELECT COUNT(*) as count FROM memories WHERE date(created_at, 'localtime') = date('now', 'localtime')`).get() as { count: number }).count;
+    const todayEntities = (db.prepare(`SELECT COUNT(*) as count FROM entities WHERE date(created_at, 'localtime') = date('now', 'localtime')`).get() as { count: number }).count;
 
     // Recent chats (top 5)
     const recentChats = db.prepare(`
@@ -879,19 +879,19 @@ export function getDashboardStats(): DashboardStats {
         ORDER BY chat_count DESC
     `).all() as DashboardStats['appDistribution'];
 
-    // Activity by day (last 14 days)
+    // Activity by day (last 14 days, using localtime)
     const activityByDay = db.prepare(`
         WITH RECURSIVE dates(date) AS (
-            SELECT date('now', '-13 days')
+            SELECT date('now', 'localtime', '-13 days')
             UNION ALL
             SELECT date(date, '+1 day')
             FROM dates
-            WHERE date < date('now')
+            WHERE date < date('now', 'localtime')
         )
         SELECT 
             dates.date,
-            (SELECT COUNT(*) FROM conversations WHERE date(updated_at) = dates.date) as chats,
-            (SELECT COUNT(*) FROM memories WHERE date(created_at) = dates.date) as memories
+            (SELECT COUNT(*) FROM conversations WHERE date(updated_at, 'localtime') = dates.date) as chats,
+            (SELECT COUNT(*) FROM memories WHERE date(created_at, 'localtime') = dates.date) as memories
         FROM dates
         ORDER BY dates.date ASC
     `).all() as DashboardStats['activityByDay'];

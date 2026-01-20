@@ -23,9 +23,12 @@ type ChatMessage = {
 
 interface MemoryChatProps {
   appName: string;
+  onNavigateToMemory?: (memoryId: number) => void;
+  onNavigateToChat?: (sessionId: string) => void;
+  onNavigateToEntity?: (entityId: number) => void;
 }
 
-export function MemoryChat({ appName }: MemoryChatProps) {
+export function MemoryChat({ appName, onNavigateToMemory, onNavigateToChat, onNavigateToEntity }: MemoryChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -187,39 +190,195 @@ export function MemoryChat({ appName }: MemoryChatProps) {
 
               {message.role === 'assistant' && message.context && openContextId === message.id ? (
                 <motion.div 
-                  className="mt-2 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700 text-sm max-w-[90%]"
+                  className="mt-2 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700 text-sm max-w-[90%] max-h-[400px] overflow-y-auto"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="font-medium text-neutral-300 mb-2">Context used</div>
+                  <div className="font-medium text-neutral-300 mb-3">Context used</div>
+                  
                   {message.context.masterMemory ? (
-                    <div className="mb-2 text-neutral-400">
-                      <span className="font-medium">Master memory:</span> {message.context.masterMemory}
+                    <div className="mb-4 p-3 rounded-lg bg-neutral-900/50 border border-neutral-700">
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Master Memory</div>
+                      <div className="text-neutral-300 prose prose-sm prose-invert max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+                          {message.context.masterMemory}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   ) : null}
-                  <div className="grid grid-cols-2 gap-1 text-neutral-500 text-xs">
-                    <div>Memories: {message.context.memories?.length || 0}</div>
-                    <div>Messages: {message.context.messages?.length || 0}</div>
-                    <div>Summaries: {message.context.summaries?.length || 0}</div>
-                    <div>Entities: {message.context.entities?.length || 0}</div>
-                  </div>
+
+                  {/* Clickable Memories */}
+                  {message.context.memories && message.context.memories.length > 0 ? (
+                    <div className="mb-3">
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Memories ({message.context.memories.length})</div>
+                      <div className="space-y-1">
+                        {message.context.memories.slice(0, 5).map((memory: any, idx: number) => (
+                          <button
+                            key={memory.id || idx}
+                            onClick={() => onNavigateToMemory?.(memory.id)}
+                            className="w-full text-left p-2 rounded-lg bg-neutral-800/30 hover:bg-neutral-700/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors group"
+                          >
+                            <p className="text-xs text-neutral-400 group-hover:text-neutral-300 line-clamp-2">
+                              {memory.content || memory.text || 'Memory'}
+                            </p>
+                          </button>
+                        ))}
+                        {message.context.memories.length > 5 && (
+                          <button
+                            onClick={() => onNavigateToMemory?.(message.context?.memories?.[0]?.id)}
+                            className="text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
+                          >
+                            +{message.context.memories.length - 5} more memories
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Clickable Summaries (Chats) */}
+                  {message.context.summaries && message.context.summaries.length > 0 ? (
+                    <div className="mb-3">
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Related Chats ({message.context.summaries.length})</div>
+                      <div className="space-y-1">
+                        {message.context.summaries.slice(0, 5).map((summary: any, idx: number) => (
+                          <button
+                            key={summary.session_id || idx}
+                            onClick={() => onNavigateToChat?.(summary.session_id)}
+                            className="w-full text-left p-2 rounded-lg bg-neutral-800/30 hover:bg-neutral-700/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors group"
+                          >
+                            <p className="text-xs text-neutral-400 group-hover:text-neutral-300 line-clamp-2">
+                              {summary.summary || summary.title || 'Chat conversation'}
+                            </p>
+                            {summary.app_name && (
+                              <span className="text-[10px] text-neutral-600 mt-1 inline-block">{summary.app_name}</span>
+                            )}
+                          </button>
+                        ))}
+                        {message.context.summaries.length > 5 && (
+                          <button
+                            onClick={() => onNavigateToChat?.(message.context?.summaries?.[0]?.session_id)}
+                            className="text-xs text-neutral-500 hover:text-neutral-400 transition-colors"
+                          >
+                            +{message.context.summaries.length - 5} more chats
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Clickable Entities */}
+                  {message.context.entities && message.context.entities.length > 0 ? (
+                    <div className="mb-3">
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Entities ({message.context.entities.length})</div>
+                      <div className="flex flex-wrap gap-1">
+                        {message.context.entities.slice(0, 10).map((entity: any, idx: number) => (
+                          <button
+                            key={entity.id || idx}
+                            onClick={() => onNavigateToEntity?.(entity.id)}
+                            className="px-2 py-1 rounded-md bg-neutral-800/50 hover:bg-neutral-700/50 border border-neutral-700/50 hover:border-neutral-600 transition-colors text-xs text-neutral-400 hover:text-neutral-300"
+                          >
+                            {entity.name || 'Entity'}
+                            {entity.type && <span className="text-neutral-600 ml-1">({entity.type})</span>}
+                          </button>
+                        ))}
+                        {message.context.entities.length > 10 && (
+                          <span className="text-xs text-neutral-500 px-2 py-1">
+                            +{message.context.entities.length - 10} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Entity Facts */}
+                  {message.context.entityFacts && message.context.entityFacts.length > 0 ? (
+                    <div>
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Entity Facts ({message.context.entityFacts.length})</div>
+                      <div className="space-y-1">
+                        {message.context.entityFacts.slice(0, 5).map((fact: any, idx: number) => (
+                          <div key={idx} className="p-2 rounded-lg bg-neutral-800/30 border border-neutral-700/50">
+                            <p className="text-xs text-neutral-400 line-clamp-2">{fact.fact || fact}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </motion.div>
               ) : null}
             </motion.div>
           ))
         )}
         {loading ? (
-          <div className="flex items-center gap-2 text-neutral-500">
-            <div className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" />
-            <span>Thinking...</span>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3 mb-4"
+          >
+            <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-neutral-800/80 border border-neutral-700">
+              <div className="flex items-center gap-3">
+                {/* Animated thinking indicator */}
+                <div className="flex items-center gap-1">
+                  <motion.div
+                    className="w-2 h-2 bg-neutral-400 rounded-full"
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ 
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: 0
+                    }}
+                  />
+                  <motion.div
+                    className="w-2 h-2 bg-neutral-400 rounded-full"
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ 
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: 0.2
+                    }}
+                  />
+                  <motion.div
+                    className="w-2 h-2 bg-neutral-400 rounded-full"
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ 
+                      duration: 1,
+                      repeat: Infinity,
+                      delay: 0.4
+                    }}
+                  />
+                </div>
+                <span className="text-sm text-neutral-400">Searching your memories...</span>
+              </div>
+              
+              {/* Subtle progress bar */}
+              <div className="mt-3 h-0.5 bg-neutral-700/50 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-neutral-600 via-neutral-500 to-neutral-600"
+                  animate={{ 
+                    x: ['-100%', '100%']
+                  }}
+                  transition={{ 
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: 'linear'
+                  }}
+                  style={{ width: '50%' }}
+                />
+              </div>
+            </div>
+          </motion.div>
         ) : null}
-        <div ref={bottomRef} />
+        <div ref={bottomRef} className="h-4" />
         </div>
-        <ProgressiveBlur
-          className="pointer-events-none absolute bottom-0 left-0 h-[80px] w-full"
-        />
       </motion.div>
 
       <motion.div 

@@ -7,7 +7,6 @@ import {
     IconBrain,
     IconUsers,
     IconArrowUpRight,
-    IconNetwork,
 } from '@tabler/icons-react';
 
 interface DashboardStats {
@@ -144,13 +143,13 @@ function HeroStat({
             transition={{ duration: 0.6, delay }}
             className="text-center"
         >
-            <div className="text-5xl md:text-6xl font-light text-white tracking-tight">
+            <div className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-light text-white tracking-tight">
                 <AnimatedNumber value={value} delay={delay} />
             </div>
-            <div className="mt-2">
+            <div className="mt-1 lg:mt-2">
                 <TextGenerate 
                     words={label} 
-                    className="text-sm text-neutral-500 uppercase tracking-widest"
+                    className="text-[10px] sm:text-xs lg:text-sm text-neutral-500 uppercase tracking-widest"
                     delay={delay + 0.3}
                 />
             </div>
@@ -200,29 +199,32 @@ function ActivitySparkline({ data }: { data: DashboardStats['activityByDay'] }) 
 // Entity List Item
 function EntityItem({ 
     entity, 
-    index 
+    index,
+    onClick
 }: { 
     entity: DashboardStats['topEntities'][0]; 
     index: number;
+    onClick?: () => void;
 }) {
     return (
         <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 1 + index * 0.1 }}
-            className="flex items-center justify-between py-3 border-b border-neutral-800/50 last:border-0 group cursor-pointer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center justify-between py-2 lg:py-3 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-800/20 -mx-2 px-2 rounded-lg transition-colors"
+            onClick={onClick}
         >
-            <div className="flex items-center gap-3">
-                <span className="text-neutral-600 text-sm tabular-nums w-5">{index + 1}</span>
-                <div>
-                    <p className="text-sm text-neutral-200 group-hover:text-white transition-colors">
+            <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
+                <span className="text-neutral-600 text-xs lg:text-sm tabular-nums w-4 lg:w-5 shrink-0">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs lg:text-sm text-neutral-200 group-hover:text-white transition-colors truncate">
                         {entity.name}
                     </p>
-                    <p className="text-[11px] text-neutral-600">{entity.type}</p>
+                    <p className="text-[10px] lg:text-[11px] text-neutral-600">{entity.type}</p>
                 </div>
             </div>
-            <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-500 tabular-nums">{entity.fact_count}</span>
+            <div className="flex items-center gap-1.5 lg:gap-2 shrink-0">
+                <span className="text-[10px] lg:text-xs text-neutral-500 tabular-nums">{entity.fact_count}</span>
                 <IconArrowUpRight className="w-3 h-3 text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
         </motion.div>
@@ -232,10 +234,10 @@ function EntityItem({
 // Recent Chat Item
 function ChatItem({ 
     chat, 
-    index 
+    onClick
 }: { 
     chat: DashboardStats['recentChats'][0]; 
-    index: number;
+    onClick?: () => void;
 }) {
     const formatTitle = (sessionId: string, title: string | null) => {
         if (title) return title;
@@ -262,18 +264,19 @@ function ChatItem({
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 1.2 + index * 0.1 }}
-            className="py-3 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-800/20 -mx-2 px-2 rounded-lg transition-colors"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="py-2 lg:py-3 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-800/20 -mx-2 px-2 rounded-lg transition-colors"
+            onClick={onClick}
         >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-2 lg:gap-3">
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-200 truncate capitalize group-hover:text-white transition-colors">
+                    <p className="text-xs lg:text-sm text-neutral-200 truncate capitalize group-hover:text-white transition-colors">
                         {formatTitle(chat.session_id, chat.title)}
                     </p>
-                    <div className="flex items-center gap-3 mt-1 text-[11px] text-neutral-600">
-                        <span className="px-1.5 py-0.5 rounded bg-neutral-800/50">{chat.app_name}</span>
+                    <div className="flex items-center flex-wrap gap-x-2 lg:gap-x-3 gap-y-1 mt-1 text-[10px] lg:text-[11px] text-neutral-600">
+                        <span className="px-1.5 py-0.5 rounded bg-neutral-800/50 truncate max-w-[80px] lg:max-w-none">{chat.app_name}</span>
                         <span className="flex items-center gap-1">
                             <IconBrain className="w-3 h-3" />
                             {chat.memory_count}
@@ -285,7 +288,7 @@ function ChatItem({
                         <span className="ml-auto">{formatTime(chat.updated_at)}</span>
                     </div>
                 </div>
-                <IconArrowUpRight className="w-4 h-4 text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
+                <IconArrowUpRight className="w-3 h-3 lg:w-4 lg:h-4 text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
             </div>
         </motion.div>
     );
@@ -294,10 +297,10 @@ function ChatItem({
 // Memory Item
 function MemoryItem({ 
     memory, 
-    index 
+    onClick
 }: { 
     memory: DashboardStats['recentMemories'][0]; 
-    index: number;
+    onClick?: () => void;
 }) {
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr.replace(' ', 'T') + 'Z');
@@ -315,16 +318,17 @@ function MemoryItem({
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 1.4 + index * 0.1 }}
-            className="py-3 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-800/20 -mx-2 px-2 rounded-lg transition-colors"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="py-2 lg:py-3 border-b border-neutral-800/50 last:border-0 group cursor-pointer hover:bg-neutral-800/20 -mx-2 px-2 rounded-lg transition-colors"
+            onClick={onClick}
         >
-            <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed group-hover:text-neutral-300 transition-colors">
+            <p className="text-[11px] lg:text-xs text-neutral-400 line-clamp-2 leading-relaxed group-hover:text-neutral-300 transition-colors">
                 {memory.content}
             </p>
-            <div className="flex items-center gap-2 mt-2 text-[10px] text-neutral-600">
-                <span className="px-1.5 py-0.5 rounded bg-neutral-800/50">{memory.source_app}</span>
+            <div className="flex items-center gap-2 mt-1.5 lg:mt-2 text-[9px] lg:text-[10px] text-neutral-600">
+                <span className="px-1.5 py-0.5 rounded bg-neutral-800/50 truncate max-w-[80px] lg:max-w-none">{memory.source_app}</span>
                 <span>{formatTime(memory.created_at)}</span>
             </div>
         </motion.div>
@@ -346,14 +350,15 @@ function SourceBar({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay }}
-            className="space-y-3"
+            className="h-full flex flex-col"
         >
             <TextGenerate 
                 words="Sources" 
                 className="text-xs text-neutral-500 uppercase tracking-wider"
                 delay={delay + 0.1}
             />
-            <div className="flex h-2 rounded-full overflow-hidden bg-neutral-800">
+            <div className="flex-1 flex flex-col justify-center space-y-3 mt-3 lg:mt-4">
+                <div className="flex h-2 rounded-full overflow-hidden bg-neutral-800">
                 {data.map((app, idx) => (
                     <motion.div
                         key={app.app_name}
@@ -391,6 +396,7 @@ function SourceBar({
                         <span className="text-neutral-600 tabular-nums">{app.chat_count}</span>
                     </motion.div>
                 ))}
+                </div>
             </div>
         </motion.div>
     );
@@ -495,7 +501,7 @@ function GraphStats({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay }}
-            className="space-y-4"
+            className="h-full flex flex-col"
         >
             <TextGenerate 
                 words="Knowledge Graph" 
@@ -503,56 +509,24 @@ function GraphStats({
                 delay={delay + 0.1}
             />
             
-            <div className="flex items-center justify-center py-6">
-                <div className="relative">
-                    {/* Central node */}
-                    <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ duration: 0.5, delay: delay + 0.3, type: 'spring' }}
-                        className="w-16 h-16 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center"
-                    >
-                        <IconNetwork className="w-7 h-7 text-neutral-400" />
-                    </motion.div>
-                    
-                    {/* Orbiting dots representing connections */}
-                    {[0, 1, 2, 3, 4].map((i) => (
-                        <motion.div
-                            key={i}
-                            initial={{ opacity: 0, scale: 0 }}
-                            animate={{ 
-                                opacity: [0, 1, 1, 0],
-                                scale: [0.5, 1, 1, 0.5],
-                            }}
-                            transition={{ 
-                                duration: 3,
-                                delay: delay + 0.5 + i * 0.3,
-                                repeat: Infinity,
-                                repeatDelay: 1
-                            }}
-                            className="absolute w-2 h-2 rounded-full bg-neutral-500"
-                            style={{
-                                top: '50%',
-                                left: '50%',
-                                transform: `rotate(${i * 72}deg) translateX(40px) translateY(-50%)`
-                            }}
-                        />
-                    ))}
+            <div className="flex-1 flex flex-col justify-center space-y-2 lg:space-y-3 mt-3 lg:mt-4">
+                <div className="flex items-center justify-between py-1.5 lg:py-2 px-2 lg:px-3 rounded-lg bg-neutral-800/30">
+                    <span className="text-xs lg:text-sm text-neutral-400">Nodes</span>
+                    <span className="text-lg lg:text-xl font-light text-white tabular-nums">
+                        <AnimatedNumber value={entities} delay={delay + 0.3} />
+                    </span>
                 </div>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="py-2 rounded-lg bg-neutral-800/50">
-                    <div className="text-lg font-light text-white"><AnimatedNumber value={entities} delay={delay + 0.4} /></div>
-                    <div className="text-[10px] text-neutral-500 uppercase">Nodes</div>
+                <div className="flex items-center justify-between py-1.5 lg:py-2 px-2 lg:px-3 rounded-lg bg-neutral-800/30">
+                    <span className="text-xs lg:text-sm text-neutral-400">Edges</span>
+                    <span className="text-lg lg:text-xl font-light text-white tabular-nums">
+                        <AnimatedNumber value={relationships} delay={delay + 0.4} />
+                    </span>
                 </div>
-                <div className="py-2 rounded-lg bg-neutral-800/50">
-                    <div className="text-lg font-light text-white"><AnimatedNumber value={relationships} delay={delay + 0.5} /></div>
-                    <div className="text-[10px] text-neutral-500 uppercase">Edges</div>
-                </div>
-                <div className="py-2 rounded-lg bg-neutral-800/50">
-                    <div className="text-lg font-light text-white"><AnimatedNumber value={facts} delay={delay + 0.6} /></div>
-                    <div className="text-[10px] text-neutral-500 uppercase">Facts</div>
+                <div className="flex items-center justify-between py-1.5 lg:py-2 px-2 lg:px-3 rounded-lg bg-neutral-800/30">
+                    <span className="text-xs lg:text-sm text-neutral-400">Facts</span>
+                    <span className="text-lg lg:text-xl font-light text-white tabular-nums">
+                        <AnimatedNumber value={facts} delay={delay + 0.5} />
+                    </span>
                 </div>
             </div>
         </motion.div>
@@ -578,7 +552,7 @@ function TodayInsight({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay }}
-            className="space-y-4"
+            className="h-full flex flex-col"
         >
             <TextGenerate 
                 words="Today" 
@@ -587,16 +561,16 @@ function TodayInsight({
             />
             
             {hasActivity ? (
-                <div className="space-y-3">
+                <div className="flex-1 flex flex-col justify-center space-y-2 lg:space-y-3 mt-3 lg:mt-4">
                     {chats > 0 && (
                         <motion.div
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: delay + 0.3 }}
-                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-neutral-800/30"
+                            className="flex items-center justify-between py-1.5 lg:py-2 px-2 lg:px-3 rounded-lg bg-neutral-800/30"
                         >
-                            <span className="text-sm text-neutral-400">Chats updated</span>
-                            <span className="text-lg font-light text-white">{chats}</span>
+                            <span className="text-xs lg:text-sm text-neutral-400">Chats updated</span>
+                            <span className="text-base lg:text-lg font-light text-white">{chats}</span>
                         </motion.div>
                     )}
                     {memories > 0 && (
@@ -604,10 +578,10 @@ function TodayInsight({
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: delay + 0.4 }}
-                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-neutral-800/30"
+                            className="flex items-center justify-between py-1.5 lg:py-2 px-2 lg:px-3 rounded-lg bg-neutral-800/30"
                         >
-                            <span className="text-sm text-neutral-400">Memories captured</span>
-                            <span className="text-lg font-light text-white">{memories}</span>
+                            <span className="text-xs lg:text-sm text-neutral-400">Memories</span>
+                            <span className="text-base lg:text-lg font-light text-white">{memories}</span>
                         </motion.div>
                     )}
                     {entities > 0 && (
@@ -615,10 +589,10 @@ function TodayInsight({
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: delay + 0.5 }}
-                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-neutral-800/30"
+                            className="flex items-center justify-between py-1.5 lg:py-2 px-2 lg:px-3 rounded-lg bg-neutral-800/30"
                         >
-                            <span className="text-sm text-neutral-400">Entities discovered</span>
-                            <span className="text-lg font-light text-white">{entities}</span>
+                            <span className="text-xs lg:text-sm text-neutral-400">Entities</span>
+                            <span className="text-base lg:text-lg font-light text-white">{entities}</span>
                         </motion.div>
                     )}
                 </div>
@@ -627,7 +601,7 @@ function TodayInsight({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: delay + 0.3 }}
-                    className="py-8 text-center"
+                    className="flex-1 flex flex-col justify-center text-center"
                 >
                     <p className="text-sm text-neutral-600">No activity yet today</p>
                     <p className="text-xs text-neutral-700 mt-1">Start chatting with your AI assistants</p>
@@ -639,9 +613,12 @@ function TodayInsight({
 
 interface DashboardProps {
     appName: string;
+    onSelectChat?: (sessionId: string) => void;
+    onSelectMemory?: (memoryId: number) => void;
+    onSelectEntity?: (entityId: number) => void;
 }
 
-export function Dashboard({ appName }: DashboardProps) {
+export function Dashboard({ appName, onSelectChat, onSelectMemory, onSelectEntity }: DashboardProps) {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -689,24 +666,24 @@ export function Dashboard({ appName }: DashboardProps) {
                 <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-center mb-16"
+                    className="text-center mb-8 lg:mb-16"
                 >
                     <TextGenerate 
                         words="Your Knowledge Base" 
-                        className="text-3xl md:text-4xl font-light text-white tracking-tight"
+                        className="text-2xl sm:text-3xl lg:text-4xl font-light text-white tracking-tight"
                         delay={0}
                     />
-                    <div className="mt-3">
+                    <div className="mt-2 lg:mt-3">
                         <TextGenerate 
                             words="Everything you've discussed, remembered, and learned" 
-                            className="text-neutral-500"
+                            className="text-neutral-500 text-sm lg:text-base"
                             delay={0.3}
                         />
                     </div>
                 </motion.div>
 
                 {/* Hero Stats */}
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-8 md:gap-4 mb-16">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 lg:gap-8 mb-8 lg:mb-16">
                     <HeroStat label="Chats" value={stats.totalChats} delay={0.4} />
                     <HeroStat label="Memories" value={stats.totalMemories} delay={0.5} />
                     <HeroStat label="Entities" value={stats.totalEntities} delay={0.6} />
@@ -716,14 +693,14 @@ export function Dashboard({ appName }: DashboardProps) {
                 </div>
 
                 {/* Activity, Sources & Entity Types Row */}
-                <div className="grid md:grid-cols-3 gap-6 mb-8">
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6 lg:mb-8">
+                    <div className="h-full p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
                         <ActivitySparkline data={stats.activityByDay} />
                     </div>
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
+                    <div className="h-full p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
                         <SourceBar data={stats.appDistribution} delay={0.7} />
                     </div>
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
+                    <div className="h-full sm:col-span-2 lg:col-span-1 p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
                         <EntityTypeBreakdown 
                             data={stats.entityTypeCounts} 
                             total={stats.totalEntities} 
@@ -733,9 +710,9 @@ export function Dashboard({ appName }: DashboardProps) {
                 </div>
 
                 {/* Today + Knowledge Graph + Top Entities Row */}
-                <div className="grid md:grid-cols-5 gap-6 mb-8">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-6 lg:mb-8">
                     {/* Today's Activity */}
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
+                    <div className="h-full p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
                         <TodayInsight 
                             chats={stats.todayChats}
                             memories={stats.todayMemories}
@@ -745,7 +722,7 @@ export function Dashboard({ appName }: DashboardProps) {
                     </div>
                     
                     {/* Knowledge Graph Visualization */}
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800 relative overflow-hidden">
+                    <div className="h-full p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800 relative overflow-hidden">
                         <BorderBeam
                             duration={10}
                             size={80}
@@ -760,13 +737,13 @@ export function Dashboard({ appName }: DashboardProps) {
                     </div>
 
                     {/* Top Entities - Takes more space */}
-                    <div className="md:col-span-3 p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800 relative overflow-hidden">
+                    <div className="h-full sm:col-span-2 lg:col-span-3 p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800 relative overflow-hidden">
                         <BorderBeam
                             duration={8}
                             size={100}
                             className="from-transparent via-neutral-700 to-transparent opacity-30"
                         />
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-3 lg:mb-4">
                             <TextGenerate 
                                 words="Top Entities" 
                                 className="text-xs text-neutral-500 uppercase tracking-wider"
@@ -774,15 +751,15 @@ export function Dashboard({ appName }: DashboardProps) {
                             />
                             <span className="text-lg font-light text-white">{stats.totalEntities}</span>
                         </div>
-                        <div className="grid md:grid-cols-2 gap-x-8">
-                            <div>
+                        <div className="grid sm:grid-cols-2 gap-x-4 lg:gap-x-8">
+                            <div className="space-y-1">
                                 {stats.topEntities.slice(0, 3).map((entity, idx) => (
-                                    <EntityItem key={entity.id} entity={entity} index={idx} />
+                                    <EntityItem key={entity.id} entity={entity} index={idx} onClick={() => onSelectEntity?.(entity.id)} />
                                 ))}
                             </div>
-                            <div>
+                            <div className="space-y-1">
                                 {stats.topEntities.slice(3, 6).map((entity, idx) => (
-                                    <EntityItem key={entity.id} entity={entity} index={idx + 3} />
+                                    <EntityItem key={entity.id} entity={entity} index={idx + 3} onClick={() => onSelectEntity?.(entity.id)} />
                                 ))}
                             </div>
                             {stats.topEntities.length === 0 && (
@@ -793,10 +770,10 @@ export function Dashboard({ appName }: DashboardProps) {
                 </div>
 
                 {/* Recent Activity Row */}
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
                     {/* Recent Chats */}
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="h-full p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
+                        <div className="flex items-center justify-between mb-3 lg:mb-4">
                             <TextGenerate 
                                 words="Recent Chats" 
                                 className="text-xs text-neutral-500 uppercase tracking-wider"
@@ -804,9 +781,9 @@ export function Dashboard({ appName }: DashboardProps) {
                             />
                             <span className="text-lg font-light text-white">{stats.totalChats}</span>
                         </div>
-                        <div>
-                            {stats.recentChats.slice(0, 5).map((chat, idx) => (
-                                <ChatItem key={chat.session_id} chat={chat} index={idx} />
+                        <div className="space-y-1">
+                            {stats.recentChats.slice(0, 5).map((chat) => (
+                                <ChatItem key={chat.session_id} chat={chat} onClick={() => onSelectChat?.(chat.session_id)} />
                             ))}
                             {stats.recentChats.length === 0 && (
                                 <p className="text-xs text-neutral-600 py-8 text-center">No chats yet</p>
@@ -815,8 +792,8 @@ export function Dashboard({ appName }: DashboardProps) {
                     </div>
 
                     {/* Recent Memories */}
-                    <div className="p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="h-full p-4 lg:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-800">
+                        <div className="flex items-center justify-between mb-3 lg:mb-4">
                             <TextGenerate 
                                 words="Latest Memories" 
                                 className="text-xs text-neutral-500 uppercase tracking-wider"
@@ -824,9 +801,9 @@ export function Dashboard({ appName }: DashboardProps) {
                             />
                             <span className="text-lg font-light text-white">{stats.totalMemories}</span>
                         </div>
-                        <div>
-                            {stats.recentMemories.slice(0, 5).map((memory, idx) => (
-                                <MemoryItem key={memory.id} memory={memory} index={idx} />
+                        <div className="space-y-1">
+                            {stats.recentMemories.slice(0, 5).map((memory) => (
+                                <MemoryItem key={memory.id} memory={memory} onClick={() => onSelectMemory?.(memory.id)} />
                             ))}
                             {stats.recentMemories.length === 0 && (
                                 <p className="text-xs text-neutral-600 py-8 text-center">No memories yet</p>

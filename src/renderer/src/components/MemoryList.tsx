@@ -1,5 +1,6 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MasterMemoryModal } from './MasterMemory';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { BorderBeam } from './ui/border-beam';
@@ -16,15 +17,19 @@ interface Memory {
 
 interface MemoryListProps {
     appName: string;
+    selectedMemoryId?: number | null;
+    onClearSelection?: () => void;
 }
 
 interface MemoryListItemProps {
     memory: Memory;
+    index: number;
     formattedTime: string;
     onDelete: (e: React.MouseEvent, memoryId: number) => void;
+    isHighlighted?: boolean;
 }
 
-function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps) {
+function MemoryListItem({ memory, index, formattedTime, onDelete, isHighlighted }: MemoryListItemProps) {
     const preview = memory.content.length > 180
         ? `${memory.content.slice(0, 180).trim()}…`
         : memory.content;
@@ -55,17 +60,23 @@ function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps
     };
 
     return (
-        <div
-            ref={containerRef}
-            className="relative overflow-hidden rounded-lg"
-            style={{
-                transform: `perspective(800px) rotateX(${glareStyle.rotateX}deg) rotateY(${glareStyle.rotateY}deg)`,
-                transition: 'transform 0.2s ease-out',
-            }}
-            onPointerMove={handlePointerMove}
-            onPointerEnter={handlePointerEnter}
-            onPointerLeave={handlePointerLeave}
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, delay: index * 0.05 }}
         >
+            <div
+                ref={containerRef}
+                className="relative overflow-hidden rounded-lg"
+                style={{
+                    transform: `perspective(800px) rotateX(${glareStyle.rotateX}deg) rotateY(${glareStyle.rotateY}deg)`,
+                    transition: 'transform 0.2s ease-out',
+                }}
+                onPointerMove={handlePointerMove}
+                onPointerEnter={handlePointerEnter}
+                onPointerLeave={handlePointerLeave}
+            >
             {/* Glare overlay */}
             <div
                 className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
@@ -88,7 +99,10 @@ function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps
                     opacity: glareStyle.opacity * 1.5,
                 }}
             />
-            <Item variant="outline" className="group hover:border-neutral-700 relative">
+            <Item variant="outline" className={cn(
+                "group hover:border-neutral-700 relative",
+                isHighlighted && "border-neutral-600 bg-neutral-800/50 ring-1 ring-neutral-600"
+            )}>
                 <ItemContent>
                     <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
@@ -154,14 +168,17 @@ function MemoryListItem({ memory, formattedTime, onDelete }: MemoryListItemProps
                 </ItemActions>
             </Item>
         </div>
+    </motion.div>
     );
 }
 
-export function MemoryList({ appName }: MemoryListProps) {
+export function MemoryList({ appName, selectedMemoryId, onClearSelection }: MemoryListProps) {
     const [memories, setMemories] = useState<Memory[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const highlightedRef = useRef<HTMLDivElement>(null);
 
     const fetchMemories = useCallback(async () => {
         setLoading(true);
@@ -185,6 +202,26 @@ export function MemoryList({ appName }: MemoryListProps) {
     useEffect(() => {
         fetchMemories();
     }, [fetchMemories]);
+
+    // Scroll to highlighted memory when selection changes
+    useEffect(() => {
+        if (selectedMemoryId && highlightedRef.current && !loading) {
+            setTimeout(() => {
+                highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+    }, [selectedMemoryId, loading]);
+
+    // Clear selection after a delay for visual feedback
+    useEffect(() => {
+        if (selectedMemoryId) {
+            const timer = setTimeout(() => {
+                onClearSelection?.();
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+        return undefined;
+    }, [selectedMemoryId, onClearSelection]);
 
     const filteredMemories = memories.filter(m =>
         m.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -293,16 +330,24 @@ export function MemoryList({ appName }: MemoryListProps) {
                 )}
 
                 <div className="relative flex-1 min-h-0">
-                    <div className="absolute inset-0 overflow-y-auto pb-16">
+                    <div ref={scrollContainerRef} className="absolute inset-0 overflow-y-auto pb-16">
                         <ItemGroup>
-                            {filteredMemories.map(memory => (
-                                <MemoryListItem
-                                    key={memory.id}
-                                    memory={memory}
-                                    formattedTime={formatTime(memory.created_at)}
-                                    onDelete={handleDeleteMemory}
-                                />
-                            ))}
+                            <AnimatePresence mode="popLayout">
+                                {filteredMemories.map((memory, index) => (
+                                    <div 
+                                        key={memory.id}
+                                        ref={memory.id === selectedMemoryId ? highlightedRef : undefined}
+                                    >
+                                        <MemoryListItem
+                                            memory={memory}
+                                            index={index}
+                                            formattedTime={formatTime(memory.created_at)}
+                                            onDelete={handleDeleteMemory}
+                                            isHighlighted={memory.id === selectedMemoryId}
+                                        />
+                                    </div>
+                                ))}
+                            </AnimatePresence>
                         </ItemGroup>
 
                         {!loading && filteredMemories.length === 0 && (

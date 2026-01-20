@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
@@ -28,6 +28,8 @@ interface EntityDetails {
 
 interface EntityListProps {
     appName: string;
+    selectedEntityId?: number | null;
+    onClearSelection?: () => void;
 }
 
 // Focus Card style entity item with blur-on-hover effect
@@ -37,6 +39,7 @@ function EntityCard({
     hoveredIndex,
     setHoveredIndex,
     isSelected,
+    isHighlighted,
     onSelect,
     onDelete,
     formatTime,
@@ -46,6 +49,7 @@ function EntityCard({
     hoveredIndex: number | null;
     setHoveredIndex: (index: number | null) => void;
     isSelected: boolean;
+    isHighlighted?: boolean;
     onSelect: () => void;
     onDelete: (e: React.MouseEvent) => void;
     formatTime: (date: string) => string;
@@ -64,8 +68,9 @@ function EntityCard({
             className={cn(
                 "group relative p-4 rounded-xl cursor-pointer transition-all duration-300 ease-out border",
                 isBlurred && "blur-sm scale-[0.98] opacity-60",
+                isHighlighted && "ring-2 ring-neutral-500 ring-offset-2 ring-offset-neutral-950",
                 isSelected
-                    ? "bg-neutral-800/60 border-purple-500/40"
+                    ? "bg-neutral-800/60 border-neutral-600"
                     : "bg-neutral-900/40 border-neutral-800 hover:bg-neutral-800/40 hover:border-neutral-700"
             )}
         >
@@ -310,15 +315,25 @@ function EntityDetailsPanel({
     );
 }
 
-export function EntityList({ appName }: EntityListProps) {
+export function EntityList({ appName, selectedEntityId: externalSelectedId, onClearSelection }: EntityListProps) {
     const [entities, setEntities] = useState<Entity[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('All');
-    const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
+    const [internalSelectedId, setInternalSelectedId] = useState<number | null>(null);
     const [details, setDetails] = useState<EntityDetails | null>(null);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const selectedCardRef = useRef<HTMLDivElement>(null);
+
+    // Use external selection if provided, otherwise use internal
+    const selectedEntityId = externalSelectedId ?? internalSelectedId;
+    const setSelectedEntityId = (id: number | null) => {
+        setInternalSelectedId(id);
+        if (externalSelectedId !== null) {
+            onClearSelection?.();
+        }
+    };
 
     const normalizeType = (value?: string) => (value || 'Unknown').trim() || 'Unknown';
 
@@ -327,15 +342,15 @@ export function EntityList({ appName }: EntityListProps) {
         try {
             const data = await window.api.getEntities(appName);
             setEntities(data as Entity[]);
-            if (data.length > 0 && selectedEntityId === null) {
-                setSelectedEntityId(data[0].id);
+            if (data.length > 0 && internalSelectedId === null && externalSelectedId === null) {
+                setInternalSelectedId(data[0].id);
             }
         } catch (e) {
             console.error('Failed to fetch entities', e);
         } finally {
             setLoading(false);
         }
-    }, [appName, selectedEntityId]);
+    }, [appName, internalSelectedId, externalSelectedId]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -372,6 +387,13 @@ export function EntityList({ appName }: EntityListProps) {
         fetchEntities();
     }, [appName]);
 
+    // Sync internal selection with external selection
+    useEffect(() => {
+        if (externalSelectedId !== null && externalSelectedId !== undefined) {
+            setInternalSelectedId(externalSelectedId);
+        }
+    }, [externalSelectedId]);
+
     useEffect(() => {
         if (selectedEntityId !== null) {
             fetchDetails(selectedEntityId);
@@ -405,14 +427,38 @@ export function EntityList({ appName }: EntityListProps) {
     }, [typeTabs, typeFilter]);
 
     useEffect(() => {
-        if (filteredEntities.length === 0) {
-            setSelectedEntityId(null);
+        // Don't auto-select if we have an external selection
+        if (externalSelectedId !== null && externalSelectedId !== undefined) {
             return;
         }
-        if (!filteredEntities.some(e => e.id === selectedEntityId)) {
-            setSelectedEntityId(filteredEntities[0].id);
+        if (filteredEntities.length === 0) {
+            setInternalSelectedId(null);
+            return;
         }
-    }, [filteredEntities, selectedEntityId]);
+        if (!filteredEntities.some(e => e.id === internalSelectedId)) {
+            setInternalSelectedId(filteredEntities[0].id);
+        }
+    }, [filteredEntities, internalSelectedId, externalSelectedId]);
+
+    // Scroll to selected entity when external selection changes
+    useEffect(() => {
+        if (externalSelectedId && selectedCardRef.current && !loading) {
+            setTimeout(() => {
+                selectedCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+    }, [externalSelectedId, loading]);
+
+    // Clear external selection after visual feedback
+    useEffect(() => {
+        if (externalSelectedId) {
+            const timer = setTimeout(() => {
+                onClearSelection?.();
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+        return undefined;
+    }, [externalSelectedId, onClearSelection]);
 
     const formatTime = (dateStr: string) => {
         const iso = dateStr.replace(' ', 'T') + 'Z';
@@ -492,20 +538,25 @@ export function EntityList({ appName }: EntityListProps) {
 
                 {/* Entity list with progressive blur */}
                 <div className="relative flex-1 min-h-0">
-                    <div className="absolute inset-0 overflow-y-auto pr-2 space-y-5 pb-24 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800 relative">
+                    <div className="absolute inset-0 overflow-y-auto pr-2 space-y-5 pb-24 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-800">
                         <AnimatePresence mode="popLayout">
                             {filteredEntities.map((entity, index) => (
-                                <EntityCard
+                                <div
                                     key={entity.id}
-                                    entity={entity}
-                                    index={index}
-                                    hoveredIndex={hoveredIndex}
-                                    setHoveredIndex={setHoveredIndex}
-                                    isSelected={selectedEntityId === entity.id}
-                                    onSelect={() => setSelectedEntityId(entity.id)}
-                                    onDelete={(e) => handleDeleteEntity(e, entity.id)}
-                                    formatTime={formatTime}
-                                />
+                                    ref={entity.id === externalSelectedId ? selectedCardRef : undefined}
+                                >
+                                    <EntityCard
+                                        entity={entity}
+                                        index={index}
+                                        hoveredIndex={hoveredIndex}
+                                        setHoveredIndex={setHoveredIndex}
+                                        isSelected={selectedEntityId === entity.id}
+                                        isHighlighted={entity.id === externalSelectedId}
+                                        onSelect={() => setSelectedEntityId(entity.id)}
+                                        onDelete={(e) => handleDeleteEntity(e, entity.id)}
+                                        formatTime={formatTime}
+                                    />
+                                </div>
                             ))}
                         </AnimatePresence>
 
