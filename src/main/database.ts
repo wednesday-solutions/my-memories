@@ -776,6 +776,9 @@ export interface DashboardStats {
     totalEntities: number;
     totalRelationships: number;
     totalMessages: number;
+    todayChats: number;
+    todayMemories: number;
+    todayEntities: number;
     totalFacts: number;
     recentChats: Array<{
         session_id: string;

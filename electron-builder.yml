@@ -33,6 +33,9 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
+  forceCodeSigning: false
+  type: development
+afterSign: scripts/resign.js
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:

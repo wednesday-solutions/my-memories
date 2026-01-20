@@ -17,7 +17,7 @@ export function parseChatGPTOutput(text: string): ParseResult {
     let chatTitle: string | undefined;
     let windowTitle: string | undefined;
     let browserUrl: string | undefined;
-    let forcedRole: 'user' | 'assistant' | null = null;
+    // Role detection is handled inline in detectRoleLabel
 
     // ChatGPT-specific noise filtering
     const isNoiseLine = (value: string) => {
@@ -102,7 +102,6 @@ export function parseChatGPTOutput(text: string): ParseResult {
         if (roleLabel) {
             commitCurrent();
             currentRole = roleLabel.role;
-            forcedRole = roleLabel.role;
             currentContent = [];
             if (roleLabel.remainder && !isNoiseLine(roleLabel.remainder)) {
                 currentContent.push(roleLabel.remainder);
@@ -140,7 +139,6 @@ export function parseChatGPTOutput(text: string): ParseResult {
         if (trimmed.startsWith("[USER]")) {
             const nextContent = trimmed.replace("[USER]", "").trim();
             const roleToUse = "user";
-            forcedRole = null;
             if (currentRole === roleToUse) {
                 if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
             } else {
@@ -152,7 +150,6 @@ export function parseChatGPTOutput(text: string): ParseResult {
         else if (trimmed.startsWith("[ASSISTANT]")) {
             const nextContent = trimmed.replace("[ASSISTANT]", "").trim();
             const roleToUse = "assistant";
-            forcedRole = null;
             if (currentRole === roleToUse) {
                 if (nextContent && !isNoiseLine(nextContent)) currentContent.push(nextContent);
             } else {
