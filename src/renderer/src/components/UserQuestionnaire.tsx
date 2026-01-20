@@ -26,7 +26,7 @@ interface QuestionnaireProps {
 // Animated text reveal
 function TextReveal({ children, delay = 0 }: { children: string; delay?: number }) {
     const words = children.split(' ');
-    
+
     return (
         <span>
             {words.map((word, i) => (
@@ -51,7 +51,7 @@ function TextReveal({ children, delay = 0 }: { children: string; delay?: number 
 // Progress bar
 function Progress({ current, total }: { current: number; total: number }) {
     const progress = (current / total) * 100;
-    
+
     return (
         <div className="w-full max-w-[280px] mx-auto mb-14">
             <div className="flex justify-between mb-3">
@@ -75,16 +75,16 @@ function Progress({ current, total }: { current: number; total: number }) {
 }
 
 // Selection card
-function SelectCard({ 
-    title, 
-    description, 
-    selected, 
-    onClick, 
-    delay = 0 
-}: { 
-    title: string; 
-    description?: string; 
-    selected: boolean; 
+function SelectCard({
+    title,
+    description,
+    selected,
+    onClick,
+    delay = 0
+}: {
+    title: string;
+    description?: string;
+    selected: boolean;
     onClick: () => void;
     delay?: number;
 }) {
@@ -99,18 +99,18 @@ function SelectCard({
             whileTap={{ scale: 0.99 }}
         >
             {selected && (
-                <BorderBeam 
-                    size={150} 
-                    duration={8} 
-                    borderWidth={1} 
-                    className="from-neutral-600/30 via-neutral-400/40 to-neutral-600/30" 
+                <BorderBeam
+                    size={150}
+                    duration={8}
+                    borderWidth={1}
+                    className="from-neutral-600/30 via-neutral-400/40 to-neutral-600/30"
                 />
             )}
             <div
                 className={cn(
                     "relative p-5 rounded-2xl border transition-all duration-300 overflow-hidden",
-                    selected 
-                        ? "bg-neutral-800/40 border-neutral-700" 
+                    selected
+                        ? "bg-neutral-800/40 border-neutral-700"
                         : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700"
                 )}
             >
@@ -147,16 +147,16 @@ function SelectCard({
 }
 
 // Multi-select checkbox card
-function CheckCard({ 
-    label, 
-    sublabel, 
-    selected, 
-    onClick, 
-    delay = 0 
-}: { 
-    label: string; 
-    sublabel?: string; 
-    selected: boolean; 
+function CheckCard({
+    label,
+    sublabel,
+    selected,
+    onClick,
+    delay = 0
+}: {
+    label: string;
+    sublabel?: string;
+    selected: boolean;
     onClick: () => void;
     delay?: number;
 }) {
@@ -165,8 +165,8 @@ function CheckCard({
             onClick={onClick}
             className={cn(
                 "p-4 rounded-xl border cursor-pointer flex items-center gap-3 transition-all duration-300",
-                selected 
-                    ? "bg-neutral-800/40 border-neutral-700" 
+                selected
+                    ? "bg-neutral-800/40 border-neutral-700"
                     : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700"
             )}
             initial={{ opacity: 0, y: 12 }}
@@ -215,14 +215,14 @@ function CheckCard({
 }
 
 // Pill button
-function Pill({ 
-    children, 
-    selected, 
-    onClick, 
-    delay = 0 
-}: { 
-    children: React.ReactNode; 
-    selected: boolean; 
+function Pill({
+    children,
+    selected,
+    onClick,
+    delay = 0
+}: {
+    children: React.ReactNode;
+    selected: boolean;
     onClick: () => void;
     delay?: number;
 }) {
@@ -231,8 +231,8 @@ function Pill({
             onClick={onClick}
             className={cn(
                 "px-5 py-3 rounded-full border text-sm font-light transition-all duration-300",
-                selected 
-                    ? "border-neutral-600 bg-neutral-800/60 text-white" 
+                selected
+                    ? "border-neutral-600 bg-neutral-800/60 text-white"
                     : "border-neutral-800 bg-transparent text-neutral-400 hover:border-neutral-700 hover:text-neutral-300"
             )}
             initial={{ opacity: 0, scale: 0.9 }}
@@ -327,8 +327,8 @@ export function UserQuestionnaire({ onComplete, onSkip }: QuestionnaireProps) {
             const arr = (prev[key] as string[]) || [];
             return {
                 ...prev,
-                [key]: arr.includes(value) 
-                    ? arr.filter(v => v !== value) 
+                [key]: arr.includes(value)
+                    ? arr.filter(v => v !== value)
                     : [...arr, value],
             };
         });
@@ -371,7 +371,7 @@ export function UserQuestionnaire({ onComplete, onSkip }: QuestionnaireProps) {
     return (
         <div className="fixed inset-0 overflow-hidden bg-neutral-950">
             <StarsBackground className="absolute inset-0 opacity-20" starDensity={0.0002} />
-            
+
             {/* Background orbs */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div
@@ -388,8 +388,8 @@ export function UserQuestionnaire({ onComplete, onSkip }: QuestionnaireProps) {
                 />
             </div>
 
-            <div className="h-full flex flex-col items-center justify-center px-6 relative z-10">
-                <div className="w-full max-w-[540px] h-[600px] flex flex-col">
+            <div className="h-full flex flex-col items-center justify-center px-6 py-12 relative z-10">
+                <div className="w-full max-w-[540px] h-full max-h-[600px] flex flex-col">
                     {/* Fixed Progress Bar */}
                     <div className="flex-shrink-0">
                         {step <= totalSteps && <Progress current={step} total={totalSteps} />}
@@ -398,350 +398,350 @@ export function UserQuestionnaire({ onComplete, onSkip }: QuestionnaireProps) {
                     {/* Fixed Height Content Area with Scroll */}
                     <div className="flex-1 min-h-0 overflow-hidden">
                         <AnimatePresence mode="wait" custom={direction}>
-                        {/* Step 1: Role */}
-                        {step === 1 && (
-                            <motion.div
-                                key="step1"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        About You
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
-                                        <TextReveal delay={0.1}>What best describes your role?</TextReveal>
-                                    </h2>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                    {ROLE_OPTIONS.map((option, i) => (
-                                        <SelectCard
-                                            key={option.value}
-                                            title={option.title}
-                                            description={option.description}
-                                            selected={answers.role === option.value}
-                                            onClick={() => setAnswers({ ...answers, role: option.value })}
-                                            delay={0.25 + i * 0.05}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* Step 2: Company Size */}
-                        {step === 2 && (
-                            <motion.div
-                                key="step2"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Context
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
-                                        <TextReveal delay={0.1}>What is your team or company size?</TextReveal>
-                                    </h2>
-                                </div>
-                                <div className="flex-1 overflow-y-auto">
-                                    <div className="flex flex-wrap gap-3">
-                                        {COMPANY_SIZE_OPTIONS.map((size, i) => (
-                                            <Pill
-                                                key={size}
-                                                selected={answers.companySize === size}
-                                                onClick={() => setAnswers({ ...answers, companySize: size })}
-                                                delay={0.25 + i * 0.04}
-                                            >
-                                                {size}
-                                            </Pill>
-                                        ))}
+                            {/* Step 1: Role */}
+                            {step === 1 && (
+                                <motion.div
+                                    key="step1"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            About You
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
+                                            <TextReveal delay={0.1}>What best describes your role?</TextReveal>
+                                        </h2>
                                     </div>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* Step 3: AI Usage Frequency */}
-                        {step === 3 && (
-                            <motion.div
-                                key="step3"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Usage
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
-                                        <TextReveal delay={0.1}>How often do you use AI tools?</TextReveal>
-                                    </h2>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                    {USAGE_FREQUENCY_OPTIONS.map((option, i) => (
-                                        <SelectCard
-                                            key={option.value}
-                                            title={option.title}
-                                            description={option.description}
-                                            selected={answers.aiUsageFrequency === option.value}
-                                            onClick={() => setAnswers({ ...answers, aiUsageFrequency: option.value })}
-                                            delay={0.25 + i * 0.06}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* Step 4: Primary Tools */}
-                        {step === 4 && (
-                            <motion.div
-                                key="step4"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Tools
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-4">
-                                        <TextReveal delay={0.1}>Which AI tools do you use?</TextReveal>
-                                    </h2>
-                                    <motion.p
-                                        className="text-[11px] text-neutral-500 mb-6 uppercase tracking-wider"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.35 }}
-                                    >
-                                        Select all that apply
-                                    </motion.p>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {AI_TOOLS.map((tool, i) => (
-                                            <CheckCard
-                                                key={tool.value}
-                                                label={tool.label}
-                                                sublabel={tool.company}
-                                                selected={answers.primaryTools?.includes(tool.value) || false}
-                                                onClick={() => toggleArray('primaryTools', tool.value)}
-                                                delay={0.3 + i * 0.04}
+                                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 p-2 -mt-2">
+                                        {ROLE_OPTIONS.map((option, i) => (
+                                            <SelectCard
+                                                key={option.value}
+                                                title={option.title}
+                                                description={option.description}
+                                                selected={answers.role === option.value}
+                                                onClick={() => setAnswers({ ...answers, role: option.value })}
+                                                delay={0.25 + i * 0.05}
                                             />
                                         ))}
                                     </div>
-                                </div>
-                            </motion.div>
-                        )}
+                                </motion.div>
+                            )}
 
-                        {/* Step 5: Pain Points */}
-                        {step === 5 && (
-                            <motion.div
-                                key="step5"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Challenges
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-4">
-                                        <TextReveal delay={0.1}>What frustrates you most about AI tools?</TextReveal>
-                                    </h2>
-                                    <motion.p
-                                        className="text-[11px] text-neutral-500 mb-6 uppercase tracking-wider"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.35 }}
-                                    >
-                                        Select your top frustrations
-                                    </motion.p>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                    <div className="space-y-3">
-                                        {PAIN_POINTS.map((pain, i) => (
-                                            <CheckCard
-                                                key={pain.value}
-                                                label={pain.label}
-                                                sublabel={pain.sublabel}
-                                                selected={answers.painPoints?.includes(pain.value) || false}
-                                                onClick={() => toggleArray('painPoints', pain.value)}
-                                                delay={0.3 + i * 0.05}
+                            {/* Step 2: Company Size */}
+                            {step === 2 && (
+                                <motion.div
+                                    key="step2"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Context
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
+                                            <TextReveal delay={0.1}>What is your team or company size?</TextReveal>
+                                        </h2>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto">
+                                        <div className="flex flex-wrap gap-3">
+                                            {COMPANY_SIZE_OPTIONS.map((size, i) => (
+                                                <Pill
+                                                    key={size}
+                                                    selected={answers.companySize === size}
+                                                    onClick={() => setAnswers({ ...answers, companySize: size })}
+                                                    delay={0.25 + i * 0.04}
+                                                >
+                                                    {size}
+                                                </Pill>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Step 3: AI Usage Frequency */}
+                            {step === 3 && (
+                                <motion.div
+                                    key="step3"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Usage
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
+                                            <TextReveal delay={0.1}>How often do you use AI tools?</TextReveal>
+                                        </h2>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 p-2 -mt-2">
+                                        {USAGE_FREQUENCY_OPTIONS.map((option, i) => (
+                                            <SelectCard
+                                                key={option.value}
+                                                title={option.title}
+                                                description={option.description}
+                                                selected={answers.aiUsageFrequency === option.value}
+                                                onClick={() => setAnswers({ ...answers, aiUsageFrequency: option.value })}
+                                                delay={0.25 + i * 0.06}
                                             />
                                         ))}
                                     </div>
-                                </div>
-                            </motion.div>
-                        )}
+                                </motion.div>
+                            )}
 
-                        {/* Step 6: Primary Use Case */}
-                        {step === 6 && (
-                            <motion.div
-                                key="step6"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Intent
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
-                                        <TextReveal delay={0.1}>What do you primarily use AI for?</TextReveal>
-                                    </h2>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                    {USE_CASES.map((uc, i) => (
-                                        <SelectCard
-                                            key={uc.value}
-                                            title={uc.title}
-                                            description={uc.description}
-                                            selected={answers.primaryUseCase === uc.value}
-                                            onClick={() => setAnswers({ ...answers, primaryUseCase: uc.value })}
-                                            delay={0.25 + i * 0.05}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
+                            {/* Step 4: Primary Tools */}
+                            {step === 4 && (
+                                <motion.div
+                                    key="step4"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Tools
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-4">
+                                            <TextReveal delay={0.1}>Which AI tools do you use?</TextReveal>
+                                        </h2>
+                                        <motion.p
+                                            className="text-[11px] text-neutral-500 mb-6 uppercase tracking-wider"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: 0.35 }}
+                                        >
+                                            Select all that apply
+                                        </motion.p>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 p-2 -mt-2">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {AI_TOOLS.map((tool, i) => (
+                                                <CheckCard
+                                                    key={tool.value}
+                                                    label={tool.label}
+                                                    sublabel={tool.company}
+                                                    selected={answers.primaryTools?.includes(tool.value) || false}
+                                                    onClick={() => toggleArray('primaryTools', tool.value)}
+                                                    delay={0.3 + i * 0.04}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
 
-                        {/* Step 7: Privacy Concern */}
-                        {step === 7 && (
-                            <motion.div
-                                key="step7"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Privacy
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
-                                        <TextReveal delay={0.1}>How important is data privacy to you?</TextReveal>
-                                    </h2>
-                                </div>
-                                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                                    {PRIVACY_OPTIONS.map((option, i) => (
-                                        <SelectCard
-                                            key={option.value}
-                                            title={option.title}
-                                            description={option.description}
-                                            selected={answers.privacyConcern === option.value}
-                                            onClick={() => setAnswers({ ...answers, privacyConcern: option.value })}
-                                            delay={0.25 + i * 0.06}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
+                            {/* Step 5: Pain Points */}
+                            {step === 5 && (
+                                <motion.div
+                                    key="step5"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Challenges
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-4">
+                                            <TextReveal delay={0.1}>What frustrates you most about AI tools?</TextReveal>
+                                        </h2>
+                                        <motion.p
+                                            className="text-[11px] text-neutral-500 mb-6 uppercase tracking-wider"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: 0.35 }}
+                                        >
+                                            Select your top frustrations
+                                        </motion.p>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 p-2 -mt-2">
+                                        <div className="space-y-3">
+                                            {PAIN_POINTS.map((pain, i) => (
+                                                <CheckCard
+                                                    key={pain.value}
+                                                    label={pain.label}
+                                                    sublabel={pain.sublabel}
+                                                    selected={answers.painPoints?.includes(pain.value) || false}
+                                                    onClick={() => toggleArray('painPoints', pain.value)}
+                                                    delay={0.3 + i * 0.05}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
 
-                        {/* Step 8: Referral Source (Optional) */}
-                        {step === 8 && (
-                            <motion.div
-                                key="step8"
-                                custom={direction}
-                                variants={slideVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                                className="h-full flex flex-col"
-                            >
-                                <div className="flex-shrink-0">
-                                    <motion.p 
-                                        className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Discovery
-                                    </motion.p>
-                                    <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-4">
-                                        <TextReveal delay={0.1}>How did you hear about us?</TextReveal>
-                                    </h2>
-                                    <motion.p
-                                        className="text-[11px] text-neutral-500 mb-6 uppercase tracking-wider"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.35 }}
-                                    >
-                                        Optional but helps us understand our community
-                                    </motion.p>
-                                </div>
-                                <div className="flex-1 overflow-y-auto">
-                                    <div className="flex flex-wrap gap-3">
-                                        {REFERRAL_OPTIONS.map((ref, i) => (
-                                            <Pill
-                                                key={ref.value}
-                                                selected={answers.referralSource === ref.value}
-                                                onClick={() => setAnswers({ ...answers, referralSource: ref.value })}
-                                                delay={0.3 + i * 0.04}
-                                            >
-                                                {ref.title}
-                                            </Pill>
+                            {/* Step 6: Primary Use Case */}
+                            {step === 6 && (
+                                <motion.div
+                                    key="step6"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Intent
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
+                                            <TextReveal delay={0.1}>What do you primarily use AI for?</TextReveal>
+                                        </h2>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 p-2 -mt-2">
+                                        {USE_CASES.map((uc, i) => (
+                                            <SelectCard
+                                                key={uc.value}
+                                                title={uc.title}
+                                                description={uc.description}
+                                                selected={answers.primaryUseCase === uc.value}
+                                                onClick={() => setAnswers({ ...answers, primaryUseCase: uc.value })}
+                                                delay={0.25 + i * 0.05}
+                                            />
                                         ))}
                                     </div>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                </motion.div>
+                            )}
+
+                            {/* Step 7: Privacy Concern */}
+                            {step === 7 && (
+                                <motion.div
+                                    key="step7"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Privacy
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-8">
+                                            <TextReveal delay={0.1}>How important is data privacy to you?</TextReveal>
+                                        </h2>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 p-2 -mt-2">
+                                        {PRIVACY_OPTIONS.map((option, i) => (
+                                            <SelectCard
+                                                key={option.value}
+                                                title={option.title}
+                                                description={option.description}
+                                                selected={answers.privacyConcern === option.value}
+                                                onClick={() => setAnswers({ ...answers, privacyConcern: option.value })}
+                                                delay={0.25 + i * 0.06}
+                                            />
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Step 8: Referral Source (Optional) */}
+                            {step === 8 && (
+                                <motion.div
+                                    key="step8"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <motion.p
+                                            className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 mb-4"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            Discovery
+                                        </motion.p>
+                                        <h2 className="text-[clamp(28px,5vw,38px)] font-extralight text-white leading-tight mb-4">
+                                            <TextReveal delay={0.1}>How did you hear about us?</TextReveal>
+                                        </h2>
+                                        <motion.p
+                                            className="text-[11px] text-neutral-500 mb-6 uppercase tracking-wider"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: 0.35 }}
+                                        >
+                                            Optional but helps us understand our community
+                                        </motion.p>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto">
+                                        <div className="flex flex-wrap gap-3">
+                                            {REFERRAL_OPTIONS.map((ref, i) => (
+                                                <Pill
+                                                    key={ref.value}
+                                                    selected={answers.referralSource === ref.value}
+                                                    onClick={() => setAnswers({ ...answers, referralSource: ref.value })}
+                                                    delay={0.3 + i * 0.04}
+                                                >
+                                                    {ref.title}
+                                                </Pill>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {/* Fixed Navigation */}
@@ -752,15 +752,15 @@ export function UserQuestionnaire({ onComplete, onSkip }: QuestionnaireProps) {
                                 disabled={step === 1}
                                 className={cn(
                                     "flex items-center gap-2 text-[11px] uppercase tracking-wider font-medium transition-all",
-                                    step === 1 
-                                        ? "text-neutral-700 cursor-not-allowed" 
+                                    step === 1
+                                        ? "text-neutral-700 cursor-not-allowed"
                                         : "text-neutral-500 hover:text-neutral-300"
                                 )}
                             >
                                 <ArrowLeft className="w-3.5 h-3.5" />
                                 Back
                             </button>
-                            
+
                             <button
                                 onClick={goNext}
                                 disabled={!canProceed() && step !== 8}
