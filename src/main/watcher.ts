@@ -139,17 +139,17 @@ export class Watcher {
       }
   }
 
-  // Check if a URL is an actual chat page (not pricing, settings, etc.)
+  // Check if a URL is an actual chat page (not pricing, settings, or empty starters)
   private static isClaudeChatUrl(url: string): boolean {
       const raw = (url || '').trim();
       if (!raw) return false;
-      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      const withScheme = /^[a-z]+:\/\//.test(raw) ? raw : `https://${raw}`;
       try {
           const parsed = new URL(withScheme);
           const pathname = parsed.pathname.toLowerCase();
-          // claude.ai/chat/* or claude.ai/new are chat pages
-          // Exclude: /pricing, /settings, /login, /signup, /api, /docs, etc.
-          return pathname.startsWith('/chat') || pathname === '/new' || pathname === '/';
+          // Only claude.ai/chat/* pages have actual content
+          // Exclude: /, /new, /pricing, /settings, /login, /signup, /api, /docs, etc.
+          return pathname.startsWith('/chat/');
       } catch {
           return false;
       }
@@ -162,9 +162,9 @@ export class Watcher {
       try {
           const parsed = new URL(withScheme);
           const pathname = parsed.pathname.toLowerCase();
-          // chatgpt.com/c/* or chatgpt.com/g/* (GPTs) or home page are chat pages
-          // Exclude: /auth, /share, /pricing, etc.
-          return pathname.startsWith('/c/') || pathname.startsWith('/g/') || pathname === '/' || pathname === '';
+          // Only chatgpt.com/c/* (actual chats) or chatgpt.com/g/* (GPTs with context)
+          // Exclude: /, /auth, /share, /pricing, etc.
+          return pathname.startsWith('/c/') || pathname.startsWith('/g/');
       } catch {
           return false;
       }
@@ -332,6 +332,11 @@ export class Watcher {
       if (parsedMessages.length > 0) {
           const rawTitle = chatTitle || title;
           const effectiveTitle = this.sanitizeBrowserTitle(rawTitle, true);
+          // Skip if sanitization returned empty (New tab pages, etc.)
+          if (!effectiveTitle) {
+              console.log(`Watcher: Skipping Claude Web capture - New tab or empty page`);
+              return;
+          }
           console.log(`Watcher: Claude Web parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("Claude.ai", effectiveTitle, parsedMessages);
       }
@@ -345,6 +350,11 @@ export class Watcher {
       if (parsedMessages.length > 0) {
           const rawTitle = chatTitle || title;
           const effectiveTitle = this.sanitizeBrowserTitle(rawTitle, true);
+          // Skip if sanitization returned empty (New tab pages, etc.)
+          if (!effectiveTitle) {
+              console.log(`Watcher: Skipping ChatGPT capture - New tab or empty page`);
+              return;
+          }
           console.log(`Watcher: ChatGPT parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("ChatGPT", effectiveTitle, parsedMessages);
       }
@@ -362,6 +372,11 @@ export class Watcher {
               || this.sanitizeGeminiTitle(parsedResult.windowTitle)
               || this.sanitizeGeminiTitle(title);
           const effectiveTitle = this.sanitizeBrowserTitle(rawTitle, true);
+          // Skip if sanitization returned empty (New tab pages, etc.)
+          if (!effectiveTitle) {
+              console.log(`Watcher: Skipping Gemini capture - New tab or empty page`);
+              return;
+          }
           console.log(`Watcher: Gemini parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("Gemini", effectiveTitle, parsedMessages);
       }

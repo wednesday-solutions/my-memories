@@ -7,7 +7,7 @@ import { EntityGraph } from './components/EntityGraph';
 import { MemoryChat } from './components/MemoryChat';
 import { Dashboard } from './components/Dashboard';
 import { Onboarding } from './components/Onboarding';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { StarsBackground } from './components/ui/stars-background';
 import { ShootingStars } from './components/ui/shooting-stars';
 import { Sidebar, SidebarBody } from './components/ui/sidebar';
@@ -27,6 +27,15 @@ import { usePostHog } from 'posthog-js/react';
 const TABS = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'];
 type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
 
+// Navigation state type for history tracking
+interface NavigationState {
+  viewMode: ViewMode;
+  activeTab: string;
+  selectedSessionId: string | null;
+  selectedMemoryId: number | null;
+  selectedEntityId: number | null;
+}
+
 function App() {
 
   const posthog = usePostHog()
@@ -37,6 +46,11 @@ function App() {
   const [selectedMemoryId, setSelectedMemoryId] = useState<number | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Navigation history stacks (back and forward)
+  const navigationHistory = useRef<NavigationState[]>([]);
+  const forwardHistory = useRef<NavigationState[]>([]);
+  const isNavigatingHistory = useRef(false);
 
   // Check onboarding status on mount
   useEffect(() => {
@@ -79,47 +93,119 @@ function App() {
     }
   }, [viewMode]);
 
+  // Track navigation state changes and push to history (except when navigating back/forward)
+  useEffect(() => {
+    if (isNavigatingHistory.current) {
+      isNavigatingHistory.current = false;
+      return;
+    }
+
+    // Avoid duplicating the same state
+    const currentState: NavigationState = {
+      viewMode,
+      activeTab,
+      selectedSessionId,
+      selectedMemoryId,
+      selectedEntityId
+    };
+
+    const lastState = navigationHistory.current[navigationHistory.current.length - 1];
+    const isSameState = lastState &&
+      lastState.viewMode === currentState.viewMode &&
+      lastState.activeTab === currentState.activeTab &&
+      lastState.selectedSessionId === currentState.selectedSessionId &&
+      lastState.selectedMemoryId === currentState.selectedMemoryId &&
+      lastState.selectedEntityId === currentState.selectedEntityId;
+
+    if (!isSameState) {
+      navigationHistory.current.push(currentState);
+      // Clear forward history when navigating to a new state
+      forwardHistory.current = [];
+      // Limit history size to prevent memory issues
+      if (navigationHistory.current.length > 50) {
+        navigationHistory.current = navigationHistory.current.slice(-50);
+      }
+    }
+  }, [viewMode, activeTab, selectedSessionId, selectedMemoryId, selectedEntityId]);
+
   const handleOnboardingComplete = () => {
     setHasCompletedOnboarding(true);
   };
 
-  const handleBack = () => {
-    setSelectedSessionId(null);
-    setSelectedMemoryId(null);
-    setSelectedEntityId(null);
-  };
+  // Navigate back using history stack
+  const navigateBack = useCallback(() => {
+    if (navigationHistory.current.length > 1) {
+      isNavigatingHistory.current = true;
+      // Pop current state and push to forward history
+      const currentState = navigationHistory.current.pop();
+      if (currentState) {
+        forwardHistory.current.push(currentState);
+      }
+      // Get previous state
+      const previousState = navigationHistory.current[navigationHistory.current.length - 1];
+      if (previousState) {
+        setViewMode(previousState.viewMode);
+        setActiveTab(previousState.activeTab);
+        setSelectedSessionId(previousState.selectedSessionId);
+        setSelectedMemoryId(previousState.selectedMemoryId);
+        setSelectedEntityId(previousState.selectedEntityId);
+      }
+    }
+  }, []);
+
+  // Navigate forward using forward history stack
+  const navigateForward = useCallback(() => {
+    if (forwardHistory.current.length > 0) {
+      isNavigatingHistory.current = true;
+      // Pop from forward history
+      const nextState = forwardHistory.current.pop();
+      if (nextState) {
+        // Push to back history
+        navigationHistory.current.push(nextState);
+        // Apply the state
+        setViewMode(nextState.viewMode);
+        setActiveTab(nextState.activeTab);
+        setSelectedSessionId(nextState.selectedSessionId);
+        setSelectedMemoryId(nextState.selectedMemoryId);
+        setSelectedEntityId(nextState.selectedEntityId);
+      }
+    }
+  }, []);
+
+  const handleBack = useCallback(() => {
+    navigateBack();
+  }, [navigateBack]);
 
   // Navigation handlers for Dashboard and MemoryChat
-  const handleSelectChat = (sessionId: string) => {
+  const handleSelectChat = useCallback((sessionId: string) => {
     setViewMode('chats');
     setSelectedSessionId(sessionId);
-  };
+  }, []);
 
-  const handleSelectMemory = (memoryId: number) => {
+  const handleSelectMemory = useCallback((memoryId: number) => {
     setViewMode('memories');
     setSelectedMemoryId(memoryId);
-  };
+  }, []);
 
-  const handleSelectEntity = (entityId: number) => {
+  const handleSelectEntity = useCallback((entityId: number) => {
     setViewMode('entities');
     setSelectedEntityId(entityId);
-  };
+  }, []);
 
-  // Global keyboard shortcut for back navigation (Cmd+[)
+  // Global keyboard shortcuts for back/forward navigation (Cmd+[ and Cmd+])
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '[') {
         e.preventDefault();
-        if (selectedSessionId || selectedMemoryId || selectedEntityId) {
-          setSelectedSessionId(null);
-          setSelectedMemoryId(null);
-          setSelectedEntityId(null);
-        }
+        navigateBack();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+        e.preventDefault();
+        navigateForward();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedSessionId, selectedMemoryId, selectedEntityId]);
+  }, [navigateBack, navigateForward]);
 
   // Show loading state while checking onboarding status
   if (hasCompletedOnboarding === null) {
