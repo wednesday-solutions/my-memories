@@ -9,7 +9,8 @@ import { BorderBeam } from './ui/border-beam';
 interface ChatSession {
     session_id: string;
     last_activity: string;
-    message_count: number;
+    memory_count: number;
+    entity_count: number;
     summary: string | null;
 }
 
@@ -115,147 +116,153 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
     };
 
     return (
-        <div
-            ref={containerRef}
-            className="relative overflow-hidden rounded-lg"
-            style={{
-                transform: `perspective(800px) rotateX(${glareStyle.rotateX}deg) rotateY(${glareStyle.rotateY}deg)`,
-                transition: 'transform 0.2s ease-out',
-            }}
-            onPointerMove={handlePointerMove}
-            onPointerEnter={handlePointerEnter}
-            onPointerLeave={handlePointerLeave}
-        >
-            {/* Glare/Shimmer overlay */}
+        <>
+            {/* 3D transformed card container */}
             <div
-                className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
+                ref={containerRef}
+                className="relative rounded-lg"
                 style={{
-                    background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.4) 0%, rgba(120,200,255,0.2) 25%, rgba(255,255,255,0) 60%)`,
-                    opacity: glareStyle.opacity,
+                    transform: `perspective(800px) rotateX(${glareStyle.rotateX}deg) rotateY(${glareStyle.rotateY}deg)`,
+                    transition: 'transform 0.2s ease-out',
                 }}
-            />
-            {/* Rainbow shimmer effect */}
-            <div
-                className="pointer-events-none absolute inset-0 z-10 mix-blend-color-dodge transition-opacity duration-300"
-                style={{
-                    background: `
-                        radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, 
-                            rgba(255,119,115,0.15) 0%,
-                            rgba(255,237,95,0.1) 15%,
-                            rgba(168,255,95,0.1) 30%,
-                            rgba(131,255,247,0.1) 45%,
-                            rgba(120,148,255,0.1) 60%,
-                            rgba(216,117,255,0.1) 75%,
-                            transparent 90%
-                        )
-                    `,
-                    opacity: glareStyle.opacity * 2,
-                }}
-            />
-            <Item
-                variant="outline"
-                className="group cursor-pointer hover:border-neutral-700 relative"
-                onClick={() => onSelect(session.session_id)}
+                onPointerMove={handlePointerMove}
+                onPointerEnter={handlePointerEnter}
+                onPointerLeave={handlePointerLeave}
             >
-            <ItemContent>
-                <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
-                        {llmLabel}
-                    </span>
-                    <ItemTitle>{readableTitle}</ItemTitle>
-                </div>
-            </ItemContent>
-
-            <ItemActions className="gap-3">
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                        {session.message_count} msgs
-                    </span>
-                    <span className="text-neutral-600">•</span>
-                    <span>{formattedTime}</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                    {session.summary && (
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <Modal>
-                                <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.6"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="h-4 w-4"
-                                    >
-                                        <path d="M8 6h8" />
-                                        <path d="M8 10h8" />
-                                        <path d="M8 14h5" />
-                                        <path d="M6 3h9l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-                                    </svg>
-                                </ModalTrigger>
-                                <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
-                                    <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <div className="text-base font-semibold text-white">
-                                                    {readableTitle} - Summary
-                                                </div>
-                                                <div className="mt-1 text-xs text-neutral-500">{llmLabel}</div>
-                                            </div>
-                                            <button
-                                                onClick={async () => {
-                                                    if (session.summary) {
-                                                        await navigator.clipboard.writeText(session.summary);
-                                                    }
-                                                }}
-                                                className="h-8 w-8 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 transition-colors flex items-center justify-center"
-                                                title="Copy to clipboard"
-                                            >
-                                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                        <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200">
-                                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
-                                                {session.summary}
-                                            </ReactMarkdown>
-                                        </div>
-                                        <div className="mt-5 text-xs text-neutral-500">{session.session_id}</div>
-                                        <BorderBeam
-                                            duration={4}
-                                            size={400}
-                                            borderWidth={2}
-                                            className="from-transparent via-red-500 to-transparent"
-                                        />
-                                        <BorderBeam
-                                            duration={4}
-                                            delay={1}
-                                            size={400}
-                                            borderWidth={2}
-                                            className="from-transparent via-blue-500 to-transparent"
-                                        />
-                                    </ModalContent>
-
-                                </ModalBody>
-                            </Modal>
+                {/* Glare/Shimmer overlay */}
+                <div
+                    className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300 rounded-lg"
+                    style={{
+                        background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.4) 0%, rgba(120,200,255,0.2) 25%, rgba(255,255,255,0) 60%)`,
+                        opacity: glareStyle.opacity,
+                    }}
+                />
+                {/* Rainbow shimmer effect */}
+                <div
+                    className="pointer-events-none absolute inset-0 z-10 mix-blend-color-dodge transition-opacity duration-300 rounded-lg"
+                    style={{
+                        background: `
+                            radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, 
+                                rgba(255,119,115,0.15) 0%,
+                                rgba(255,237,95,0.1) 15%,
+                                rgba(168,255,95,0.1) 30%,
+                                rgba(131,255,247,0.1) 45%,
+                                rgba(120,148,255,0.1) 60%,
+                                rgba(216,117,255,0.1) 75%,
+                                transparent 90%
+                            )
+                        `,
+                        opacity: glareStyle.opacity * 2,
+                    }}
+                />
+                <Item
+                    variant="outline"
+                    className="group cursor-pointer hover:border-neutral-700 relative"
+                    onClick={() => onSelect(session.session_id)}
+                >
+                    <ItemContent>
+                        <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                                {llmLabel}
+                            </span>
+                            <ItemTitle>{readableTitle}</ItemTitle>
                         </div>
-                    )}
+                    </ItemContent>
 
-                    <button
-                        onClick={(e) => onDelete(e, session.session_id)}
-                        className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
-                        title="Delete"
-                    >
-                        ×
-                    </button>
-                </div>
-            </ItemActions>
-        </Item>
-        </div>
+                    <ItemActions className="gap-3">
+                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                            <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                                {session.memory_count} {session.memory_count === 1 ? 'memory' : 'memories'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                {session.entity_count} {session.entity_count === 1 ? 'entity' : 'entities'}
+                            </span>
+                            <span className="text-neutral-600">•</span>
+                            <span>{formattedTime}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {session.summary && (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                    <Modal>
+                                        <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.6"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className="h-4 w-4"
+                                            >
+                                                <path d="M8 6h8" />
+                                                <path d="M8 10h8" />
+                                                <path d="M8 14h5" />
+                                                <path d="M6 3h9l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                                            </svg>
+                                        </ModalTrigger>
+                                        {/* Modal rendered OUTSIDE the 3D transformed container */}
+                                        <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
+                                            <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-base font-semibold text-white">
+                                                            {readableTitle} - Summary
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-neutral-500">{llmLabel}</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (session.summary) {
+                                                                await navigator.clipboard.writeText(session.summary);
+                                                            }
+                                                        }}
+                                                        className="h-8 w-8 rounded-lg border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 transition-colors flex items-center justify-center"
+                                                        title="Copy to clipboard"
+                                                    >
+                                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200">
+                                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>
+                                                        {session.summary}
+                                                    </ReactMarkdown>
+                                                </div>
+                                                <div className="mt-5 text-xs text-neutral-500">{session.session_id}</div>
+                                                <BorderBeam
+                                                    duration={4}
+                                                    size={400}
+                                                    borderWidth={2}
+                                                    className="from-transparent via-red-500 to-transparent"
+                                                />
+                                                <BorderBeam
+                                                    duration={4}
+                                                    delay={1}
+                                                    size={400}
+                                                    borderWidth={2}
+                                                    className="from-transparent via-blue-500 to-transparent"
+                                                />
+                                            </ModalContent>
+                                        </ModalBody>
+                                    </Modal>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={(e) => onDelete(e, session.session_id)}
+                                className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
+                                title="Delete"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </ItemActions>
+                </Item>
+            </div>
+        </>
     );
 }
 

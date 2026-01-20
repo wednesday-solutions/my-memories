@@ -13,6 +13,8 @@ try {
     // Chat Summaries
     getChatSessions: (appName?: string) => ipcRenderer.invoke('db:get-chat-sessions', appName),
     getMemoriesForSession: (sessionId: string) => ipcRenderer.invoke('db:get-memories-for-session', sessionId),
+    getEntitiesForSession: (sessionId: string) => ipcRenderer.invoke('db:get-entities-for-session', sessionId),
+    getMemoryRecordsForSession: (sessionId: string) => ipcRenderer.invoke('db:get-memory-records-for-session', sessionId),
     summarizeSession: (sessionId: string) => ipcRenderer.invoke('llm:summarize-session', sessionId),
     deleteSession: (sessionId: string) => ipcRenderer.invoke('db:delete-session', sessionId),
     

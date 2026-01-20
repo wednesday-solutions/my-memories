@@ -9,6 +9,8 @@ interface IElectronAPI {
   
   getChatSessions: (appName?: string) => Promise<any[]>
   getMemoriesForSession: (sessionId: string) => Promise<any[]>
+  getEntitiesForSession: (sessionId: string) => Promise<any[]>
+  getMemoryRecordsForSession: (sessionId: string) => Promise<any[]>
   summarizeSession: (sessionId: string) => Promise<string>
   deleteSession: (sessionId: string) => Promise<boolean>
   

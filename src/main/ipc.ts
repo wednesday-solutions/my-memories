@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
@@ -624,6 +624,12 @@ Answer:`;
   });
   ipcMain.handle('db:get-entity-details', (_, entityId: number, appName?: string) => {
       return getEntityDetails(entityId, appName);
+  });
+  ipcMain.handle('db:get-entities-for-session', (_, sessionId: string) => {
+      return getEntitiesForSession(sessionId);
+  });
+  ipcMain.handle('db:get-memory-records-for-session', (_, sessionId: string) => {
+      return getMemoryRecordsForSession(sessionId);
   });
 
   ipcMain.handle('db:get-entity-graph', (_, appName?: string, focusEntityId?: number, edgeLimit: number = 200) => {

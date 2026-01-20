@@ -77,6 +77,20 @@ function App() {
     setSelectedSessionId(null);
   };
 
+  // Global keyboard shortcut for back navigation (Cmd+[)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+        e.preventDefault();
+        if (selectedSessionId) {
+          setSelectedSessionId(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedSessionId]);
+
   // Show loading state while checking onboarding status
   if (hasCompletedOnboarding === null) {
     return null;
@@ -182,7 +196,19 @@ function App() {
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
             {viewMode === 'chats' && selectedSessionId ? (
-              <ChatDetail sessionId={selectedSessionId} onBack={handleBack} />
+              <ChatDetail
+                sessionId={selectedSessionId}
+                onBack={handleBack}
+                onSelectEntity={(_entityId) => {
+                  // Navigate to entities view - the EntityList will need to handle selecting the specific entity
+                  setViewMode('entities');
+                  setSelectedSessionId(null);
+                }}
+                onSelectMemory={(_memoryId) => {
+                  setViewMode('memories');
+                  setSelectedSessionId(null);
+                }}
+              />
             ) : (
               <div className="p-6 h-full overflow-y-auto">
                 {viewMode === 'memory-chat' ? (

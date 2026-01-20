@@ -266,16 +266,15 @@ export function getDB() {
 
 export function getChatSessions(appName?: string) {
     const db = getDB();
-    // Query the new 'conversations' table
-    // Also join with messages count if needed, or we keep a counter in conversations?
-    // Let's do a join.
+    // Query conversations with memory and entity counts instead of message count
     let query = `
         SELECT 
             c.id as session_id,
             c.title,
             c.app_name as source_app,
             c.updated_at as last_activity,
-            (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id) as message_count,
+            (SELECT COUNT(*) FROM memories mem WHERE mem.session_id = c.id) as memory_count,
+            (SELECT COUNT(DISTINCT es.entity_id) FROM entity_sessions es WHERE es.session_id = c.id) as entity_count,
             (SELECT summary FROM chat_summaries cs WHERE cs.session_id = c.id) as summary
         FROM conversations c
     `;
@@ -560,6 +559,21 @@ export function getEntityDetails(entityId: number, appName?: string) {
 
     const facts = db.prepare(factsQuery).all(...params);
     return { entity, facts };
+}
+
+export function getEntitiesForSession(sessionId: string) {
+    const db = getDB();
+    const stmt = db.prepare(`
+      SELECT e.id, e.name, e.type, e.summary, e.updated_at,
+             COUNT(DISTINCT f.id) as fact_count
+      FROM entities e
+      JOIN entity_sessions es ON es.entity_id = e.id
+      LEFT JOIN entity_facts f ON f.entity_id = e.id
+      WHERE es.session_id = ?
+      GROUP BY e.id
+      ORDER BY e.updated_at DESC
+    `);
+    return stmt.all(sessionId);
 }
 
   export function getEntityGraph(appName?: string, focusEntityId?: number, edgeLimit: number = 200, factsPerNode: number = 3) {

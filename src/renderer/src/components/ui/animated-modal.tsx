@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalContextType {
   open: boolean;
@@ -81,7 +82,7 @@ export const ModalBody = ({
   const { setOpen } = useModal();
   useOutsideClick(modalRef, () => setOpen(false));
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -134,7 +135,8 @@ export const ModalBody = ({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
