@@ -7,6 +7,7 @@ import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-moda
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
 import { BorderBeam } from './ui/border-beam';
 import { ProgressiveBlur } from './ui/progressive-blur';
+import { SourceFilterTabs, Source } from './SourceFilterTabs';
 import { cn } from '@renderer/lib/utils';
 
 interface ChatSession {
@@ -18,7 +19,6 @@ interface ChatSession {
 }
 
 interface ChatListProps {
-    appName: string;
     onSelectSession: (sessionId: string) => void;
 }
 
@@ -271,23 +271,24 @@ function ChatListItem({ session, index, formattedTime, onSelect, onDelete }: Cha
     );
 }
 
-export function ChatList({ appName, onSelectSession }: ChatListProps) {
+export function ChatList({ onSelectSession }: ChatListProps) {
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [activeSource, setActiveSource] = useState<Source>('All');
 
     const fetchSessions = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await window.api.getChatSessions(appName);
+            const data = await window.api.getChatSessions(activeSource);
             setSessions(data);
         } catch (e) {
             console.error("Failed to fetch sessions", e);
         } finally {
             setLoading(false);
         }
-    }, [appName]);
+    }, [activeSource]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -328,6 +329,12 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
 
     return (
         <div className="h-full flex flex-col gap-4">
+            {/* Source Filter Tabs */}
+            <SourceFilterTabs
+                activeSource={activeSource}
+                onSourceChange={(source) => { setActiveSource(source); setSearchQuery(''); }}
+            />
+
             {/* Search Bar with Refresh Button */}
             <div className="flex items-center gap-3">
                 <div className="relative flex-1">
@@ -398,7 +405,7 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
                         </div>
                     )}
                 </div>
-                
+
                 {filteredSessions.length > 3 && (
                     <ProgressiveBlur
                         height="80px"

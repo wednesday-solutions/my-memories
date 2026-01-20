@@ -6,6 +6,7 @@ import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-moda
 import { BorderBeam } from './ui/border-beam';
 import { ProgressiveBlur } from './ui/progressive-blur';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
+import { SourceFilterTabs, Source } from './SourceFilterTabs';
 import { cn } from '@renderer/lib/utils';
 
 interface Memory {
@@ -16,7 +17,6 @@ interface Memory {
 }
 
 interface MemoryListProps {
-    appName: string;
     selectedMemoryId?: number | null;
     onClearSelection?: () => void;
 }
@@ -77,106 +77,107 @@ function MemoryListItem({ memory, index, formattedTime, onDelete, isHighlighted 
                 onPointerEnter={handlePointerEnter}
                 onPointerLeave={handlePointerLeave}
             >
-            {/* Glare overlay */}
-            <div
-                className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
-                style={{
-                    background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 70%)`,
-                    opacity: glareStyle.opacity,
-                }}
-            />
-            {/* Subtle shimmer effect */}
-            <div
-                className="pointer-events-none absolute inset-0 z-10 mix-blend-overlay transition-opacity duration-300"
-                style={{
-                    background: `
+                {/* Glare overlay */}
+                <div
+                    className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300"
+                    style={{
+                        background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 70%)`,
+                        opacity: glareStyle.opacity,
+                    }}
+                />
+                {/* Subtle shimmer effect */}
+                <div
+                    className="pointer-events-none absolute inset-0 z-10 mix-blend-overlay transition-opacity duration-300"
+                    style={{
+                        background: `
                         radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, 
                             rgba(255,255,255,0.08) 0%,
                             rgba(255,255,255,0.04) 40%,
                             transparent 70%
                         )
                     `,
-                    opacity: glareStyle.opacity * 1.5,
-                }}
-            />
-            <Item variant="outline" className={cn(
-                "group hover:border-neutral-700 relative",
-                isHighlighted && "border-neutral-600 bg-neutral-800/50 ring-1 ring-neutral-600"
-            )}>
-                <ItemContent>
-                    <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
-                            {memory.source_app}
-                        </span>
-                        <ItemTitle>Memory #{memory.id}</ItemTitle>
-                    </div>
-                    <ItemDescription className="text-neutral-400 line-clamp-2">
-                        {preview}
-                    </ItemDescription>
-                </ItemContent>
+                        opacity: glareStyle.opacity * 1.5,
+                    }}
+                />
+                <Item variant="outline" className={cn(
+                    "group hover:border-neutral-700 relative",
+                    isHighlighted && "border-neutral-600 bg-neutral-800/50 ring-1 ring-neutral-600"
+                )}>
+                    <ItemContent>
+                        <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                                {memory.source_app}
+                            </span>
+                            <ItemTitle>Memory #{memory.id}</ItemTitle>
+                        </div>
+                        <ItemDescription className="text-neutral-400 line-clamp-2">
+                            {preview}
+                        </ItemDescription>
+                    </ItemContent>
 
-                <ItemActions className="gap-3">
-                    <div className="flex items-center gap-2 text-xs text-neutral-500">
-                        <span>{formattedTime}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <Modal>
-                                <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.6"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="h-4 w-4"
-                                    >
-                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                </ModalTrigger>
-                                <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
-                                    <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
-                                        <div className="text-base font-semibold text-white">Memory</div>
-                                        <div className="mt-1 text-xs text-neutral-500">
-                                            {memory.source_app} • {formattedTime}
-                                        </div>
-                                        <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">
-                                            {memory.content}
-                                        </div>
-                                        <div className="mt-5 text-xs text-neutral-500">#{memory.id}</div>
-                                        <BorderBeam
-                                            duration={6}
-                                            size={380}
-                                            className="from-transparent via-neutral-500 to-transparent"
-                                        />
-                                    </ModalContent>
-                                </ModalBody>
-                            </Modal>
+                    <ItemActions className="gap-3">
+                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                            <span>{formattedTime}</span>
                         </div>
 
-                        <button
-                            onClick={(e) => onDelete(e, memory.id)}
-                            className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
-                            title="Delete"
-                        >
-                            ×
-                        </button>
-                    </div>
-                </ItemActions>
-            </Item>
-        </div>
-    </motion.div>
+                        <div className="flex items-center gap-2">
+                            <div onClick={(e) => e.stopPropagation()}>
+                                <Modal>
+                                    <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.6"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="h-4 w-4"
+                                        >
+                                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                    </ModalTrigger>
+                                    <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
+                                        <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
+                                            <div className="text-base font-semibold text-white">Memory</div>
+                                            <div className="mt-1 text-xs text-neutral-500">
+                                                {memory.source_app} • {formattedTime}
+                                            </div>
+                                            <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">
+                                                {memory.content}
+                                            </div>
+                                            <div className="mt-5 text-xs text-neutral-500">#{memory.id}</div>
+                                            <BorderBeam
+                                                duration={6}
+                                                size={380}
+                                                className="from-transparent via-neutral-500 to-transparent"
+                                            />
+                                        </ModalContent>
+                                    </ModalBody>
+                                </Modal>
+                            </div>
+
+                            <button
+                                onClick={(e) => onDelete(e, memory.id)}
+                                className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
+                                title="Delete"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </ItemActions>
+                </Item>
+            </div>
+        </motion.div>
     );
 }
 
-export function MemoryList({ appName, selectedMemoryId, onClearSelection }: MemoryListProps) {
+export function MemoryList({ selectedMemoryId, onClearSelection }: MemoryListProps) {
     const [memories, setMemories] = useState<Memory[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [activeSource, setActiveSource] = useState<Source>('All');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const highlightedRef = useRef<HTMLDivElement>(null);
 
@@ -184,14 +185,14 @@ export function MemoryList({ appName, selectedMemoryId, onClearSelection }: Memo
         setLoading(true);
         try {
             // Fetch last 100 memories, filtered by app
-            const data = await window.api.getMemories(100, appName);
+            const data = await window.api.getMemories(100, activeSource);
             setMemories(data);
         } catch (e) {
             console.error("Failed to fetch memories", e);
         } finally {
             setLoading(false);
         }
-    }, [appName]);
+    }, [activeSource]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -246,6 +247,12 @@ export function MemoryList({ appName, selectedMemoryId, onClearSelection }: Memo
 
     return (
         <div className="h-full flex flex-col gap-4">
+            {/* Source Filter Tabs */}
+            <SourceFilterTabs
+                activeSource={activeSource}
+                onSourceChange={(source) => { setActiveSource(source); setSearchQuery(''); }}
+            />
+
             <div className="flex-1 flex flex-col overflow-hidden gap-4">
                 {/* Search bar with Master Memory icon */}
                 <div className="flex items-center gap-3">
@@ -334,7 +341,7 @@ export function MemoryList({ appName, selectedMemoryId, onClearSelection }: Memo
                         <ItemGroup>
                             <AnimatePresence mode="popLayout">
                                 {filteredMemories.map((memory, index) => (
-                                    <div 
+                                    <div
                                         key={memory.id}
                                         ref={memory.id === selectedMemoryId ? highlightedRef : undefined}
                                     >
@@ -361,7 +368,7 @@ export function MemoryList({ appName, selectedMemoryId, onClearSelection }: Memo
                             </div>
                         )}
                     </div>
-                    
+
                     {filteredMemories.length > 3 && (
                         <ProgressiveBlur
                             height="80px"

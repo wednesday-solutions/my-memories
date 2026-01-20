@@ -24,13 +24,11 @@ import {
 import { cn } from './lib/utils';
 import { usePostHog } from 'posthog-js/react';
 
-const TABS = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'];
 type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
 
 // Navigation state type for history tracking
 interface NavigationState {
   viewMode: ViewMode;
-  activeTab: string;
   selectedSessionId: string | null;
   selectedMemoryId: number | null;
   selectedEntityId: number | null;
@@ -40,7 +38,7 @@ function App() {
 
   const posthog = usePostHog()
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState('All');
+
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedMemoryId, setSelectedMemoryId] = useState<number | null>(null);
@@ -103,7 +101,6 @@ function App() {
     // Avoid duplicating the same state
     const currentState: NavigationState = {
       viewMode,
-      activeTab,
       selectedSessionId,
       selectedMemoryId,
       selectedEntityId
@@ -112,7 +109,6 @@ function App() {
     const lastState = navigationHistory.current[navigationHistory.current.length - 1];
     const isSameState = lastState &&
       lastState.viewMode === currentState.viewMode &&
-      lastState.activeTab === currentState.activeTab &&
       lastState.selectedSessionId === currentState.selectedSessionId &&
       lastState.selectedMemoryId === currentState.selectedMemoryId &&
       lastState.selectedEntityId === currentState.selectedEntityId;
@@ -126,7 +122,7 @@ function App() {
         navigationHistory.current = navigationHistory.current.slice(-50);
       }
     }
-  }, [viewMode, activeTab, selectedSessionId, selectedMemoryId, selectedEntityId]);
+  }, [viewMode, selectedSessionId, selectedMemoryId, selectedEntityId]);
 
   const handleOnboardingComplete = () => {
     setHasCompletedOnboarding(true);
@@ -145,7 +141,6 @@ function App() {
       const previousState = navigationHistory.current[navigationHistory.current.length - 1];
       if (previousState) {
         setViewMode(previousState.viewMode);
-        setActiveTab(previousState.activeTab);
         setSelectedSessionId(previousState.selectedSessionId);
         setSelectedMemoryId(previousState.selectedMemoryId);
         setSelectedEntityId(previousState.selectedEntityId);
@@ -164,7 +159,6 @@ function App() {
         navigationHistory.current.push(nextState);
         // Apply the state
         setViewMode(nextState.viewMode);
-        setActiveTab(nextState.activeTab);
         setSelectedSessionId(nextState.selectedSessionId);
         setSelectedMemoryId(nextState.selectedMemoryId);
         setSelectedEntityId(nextState.selectedEntityId);
@@ -288,30 +282,6 @@ function App() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Tab Bar */}
-          <div className="flex items-center gap-2 px-6 py-4 bg-neutral-900/50 backdrop-blur-xl border-b border-neutral-800">
-            {TABS.map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setSelectedSessionId(null); setSelectedMemoryId(null); setSelectedEntityId(null); }}
-                className={cn(
-                  "relative px-4 py-2 rounded-full text-sm font-medium transition-all",
-                  activeTab === tab
-                    ? "text-white"
-                    : "text-neutral-500 hover:text-neutral-300"
-                )}
-              >
-                {activeTab === tab && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute inset-0 bg-neutral-800/80 border border-neutral-700 rounded-full"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
-                )}
-                <span className="relative z-10">{tab}</span>
-              </button>
-            ))}
-          </div>
 
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
@@ -351,26 +321,24 @@ function App() {
                 >
                   {viewMode === 'dashboard' ? (
                     <Dashboard
-                      appName={activeTab}
                       onSelectChat={handleSelectChat}
                       onSelectMemory={handleSelectMemory}
                       onSelectEntity={handleSelectEntity}
                     />
                   ) : viewMode === 'memory-chat' ? (
                     <MemoryChat
-                      appName={activeTab}
                       onNavigateToMemory={handleSelectMemory}
                       onNavigateToChat={handleSelectChat}
                       onNavigateToEntity={handleSelectEntity}
                     />
                   ) : viewMode === 'chats' ? (
-                    <ChatList appName={activeTab} onSelectSession={setSelectedSessionId} />
+                    <ChatList onSelectSession={setSelectedSessionId} />
                   ) : viewMode === 'memories' ? (
-                    <MemoryList appName={activeTab} selectedMemoryId={selectedMemoryId} onClearSelection={() => setSelectedMemoryId(null)} />
+                    <MemoryList selectedMemoryId={selectedMemoryId} onClearSelection={() => setSelectedMemoryId(null)} />
                   ) : viewMode === 'entities' ? (
-                    <EntityList appName={activeTab} selectedEntityId={selectedEntityId} onClearSelection={() => setSelectedEntityId(null)} />
+                    <EntityList selectedEntityId={selectedEntityId} onClearSelection={() => setSelectedEntityId(null)} />
                   ) : (
-                    <EntityGraph appName={activeTab} />
+                    <EntityGraph />
                   )}
                 </motion.div>
               )}

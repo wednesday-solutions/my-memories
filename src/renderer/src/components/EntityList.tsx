@@ -4,6 +4,7 @@ import { cn } from '@renderer/lib/utils';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { BorderBeam } from './ui/border-beam';
 import { ProgressiveBlur } from './ui/progressive-blur';
+import { SourceFilterTabs, Source } from './SourceFilterTabs';
 
 interface Entity {
     id: number;
@@ -27,7 +28,6 @@ interface EntityDetails {
 }
 
 interface EntityListProps {
-    appName: string;
     selectedEntityId?: number | null;
     onClearSelection?: () => void;
 }
@@ -315,11 +315,12 @@ function EntityDetailsPanel({
     );
 }
 
-export function EntityList({ appName, selectedEntityId: externalSelectedId, onClearSelection }: EntityListProps) {
+export function EntityList({ selectedEntityId: externalSelectedId, onClearSelection }: EntityListProps) {
     const [entities, setEntities] = useState<Entity[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('All');
+    const [activeSource, setActiveSource] = useState<Source>('All');
     const [internalSelectedId, setInternalSelectedId] = useState<number | null>(null);
     const [details, setDetails] = useState<EntityDetails | null>(null);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -340,7 +341,7 @@ export function EntityList({ appName, selectedEntityId: externalSelectedId, onCl
     const fetchEntities = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await window.api.getEntities(appName);
+            const data = await window.api.getEntities(activeSource);
             setEntities(data as Entity[]);
             if (data.length > 0 && internalSelectedId === null && externalSelectedId === null) {
                 setInternalSelectedId(data[0].id);
@@ -350,7 +351,7 @@ export function EntityList({ appName, selectedEntityId: externalSelectedId, onCl
         } finally {
             setLoading(false);
         }
-    }, [appName, internalSelectedId, externalSelectedId]);
+    }, [activeSource, internalSelectedId, externalSelectedId]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -360,7 +361,7 @@ export function EntityList({ appName, selectedEntityId: externalSelectedId, onCl
 
     const fetchDetails = async (entityId: number) => {
         try {
-            const data = await window.api.getEntityDetails(entityId, appName);
+            const data = await window.api.getEntityDetails(entityId, activeSource);
             setDetails(data as EntityDetails);
         } catch (e) {
             console.error('Failed to fetch entity details', e);
@@ -385,7 +386,7 @@ export function EntityList({ appName, selectedEntityId: externalSelectedId, onCl
 
     useEffect(() => {
         fetchEntities();
-    }, [appName]);
+    }, [activeSource]);
 
     // Sync internal selection with external selection
     useEffect(() => {
@@ -400,7 +401,7 @@ export function EntityList({ appName, selectedEntityId: externalSelectedId, onCl
         } else {
             setDetails(null);
         }
-    }, [selectedEntityId, appName]);
+    }, [selectedEntityId, activeSource]);
 
     const typeTabs = useMemo(() => {
         const types = Array.from(new Set(entities.map(e => normalizeType(e.type)))).sort();
@@ -469,6 +470,16 @@ export function EntityList({ appName, selectedEntityId: externalSelectedId, onCl
         <div className="h-full flex gap-6">
             {/* Left panel - Entity list */}
             <div className="w-[38%] min-w-[280px] flex flex-col gap-4">
+                {/* Source filter tabs */}
+                <SourceFilterTabs
+                    activeSource={activeSource}
+                    onSourceChange={(source) => {
+                        setActiveSource(source);
+                        setSearchQuery('');
+                        setTypeFilter('All');
+                    }}
+                />
+
                 {/* Type filter tabs */}
                 <div className="flex gap-1 flex-wrap pb-2">
                     {typeTabs.map(type => (

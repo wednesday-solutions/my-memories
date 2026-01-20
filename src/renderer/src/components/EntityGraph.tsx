@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 import { BorderBeam } from './ui/border-beam';
+import { SourceFilterTabs, Source } from './SourceFilterTabs';
 
 interface GraphNode {
     id: number;
@@ -31,7 +32,7 @@ interface GraphResponse {
 }
 
 interface EntityGraphProps {
-    appName: string;
+    // No props needed - source filter is managed internally
 }
 
 // Color palette for different entity types
@@ -49,11 +50,11 @@ const typeColors: Record<string, string> = {
 const normalizeType = (type?: string): string => {
     if (!type) return 'Unknown';
     const t = type.trim().toLowerCase();
-    
+
     // Direct match against known types (case-insensitive)
     const directMatch = Object.keys(typeColors).find(k => k.toLowerCase() === t);
     if (directMatch) return directMatch;
-    
+
     // Map common aliases to our defined types
     const typeMap: Record<string, string> = {
         'library': 'Technology',
@@ -103,7 +104,7 @@ const normalizeType = (type?: string): string => {
 
     // Check for exact match in our map
     if (typeMap[t]) return typeMap[t];
-    
+
     // Check if type contains any known type keyword
     for (const [alias, mapped] of Object.entries(typeMap)) {
         if (t.includes(alias)) return mapped;
@@ -118,7 +119,7 @@ const getTypeColor = (type: string): string => {
     return typeColors[normalized] || typeColors['Unknown'];
 };
 
-export function EntityGraph({ appName }: EntityGraphProps) {
+export function EntityGraph({ }: EntityGraphProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const graphRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -128,6 +129,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     const [hoveredNodeId, setHoveredNodeId] = useState<number | null>(null);
     const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
+    const [activeSource, setActiveSource] = useState<Source>('All');
 
     const nodesById = useMemo(() => {
         const map = new Map<number, GraphNode>();
@@ -149,7 +151,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
     const fetchGraph = async () => {
         setLoading(true);
         try {
-            const data = await window.api.getEntityGraph(appName, focusEntityId, 200);
+            const data = await window.api.getEntityGraph(activeSource, focusEntityId, 200);
             setGraph(data as GraphResponse);
         } catch (e) {
             console.error('Failed to fetch entity graph', e);
@@ -194,7 +196,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
 
     useEffect(() => {
         fetchGraph();
-    }, [appName, focusEntityId]);
+    }, [activeSource, focusEntityId]);
 
     // Configure d3 forces once on mount
     const forcesConfigured = useRef(false);
@@ -332,6 +334,15 @@ export function EntityGraph({ appName }: EntityGraphProps) {
         <div className="flex gap-4 h-full overflow-hidden">
             {/* Graph Area - Fixed width to prevent drift */}
             <div className="flex-1 flex flex-col gap-3 min-w-0">
+                {/* Source filter tabs */}
+                <SourceFilterTabs
+                    activeSource={activeSource}
+                    onSourceChange={(source) => {
+                        setActiveSource(source);
+                        setSelectedNodeId(null);
+                    }}
+                />
+
                 {/* Header */}
                 <div className="flex items-center gap-3 flex-shrink-0">
                     <h2 className="text-lg font-semibold text-white">Entity Graph</h2>
