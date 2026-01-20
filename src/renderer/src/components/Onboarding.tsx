@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence, stagger, useAnimate } from 'motion/react';
 import { LampContainer } from './ui/lamp';
-import { FlipWords } from './ui/flip-words';
-import { HoverBorderGradient } from './ui/hover-border-gradient';
-import { ShootingStars } from './ui/shooting-stars';
-import { StarsBackground } from './ui/stars-background';
-import { Spotlight } from './ui/spotlight';
 import { OrbitingCircles } from './ui/orbiting-circles';
+import { StarsBackground } from './ui/stars-background';
+import { BorderBeam } from './ui/border-beam';
+import { cn } from '@renderer/lib/utils';
 
-import { ArrowRight, Search, Check, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, Brain, Database, Network, MessageSquare } from 'lucide-react';
 
-// Brand SVG Icons from Simple Icons
+// Brand SVG Icons
 const OpenAIIcon = ({ className }: { className?: string }) => (
     <svg role="img" viewBox="0 0 24 24" className={className} fill="currentColor">
         <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
@@ -41,56 +39,75 @@ const GrokIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
-// Typewriter effect component
-const TypewriterText = ({ text, onComplete }: { text: string; onComplete?: () => void }) => {
-    const [displayedText, setDisplayedText] = useState('');
-    const [currentIndex, setCurrentIndex] = useState(0);
+// Text Generate Effect - matching Dashboard style
+function TextGenerate({ 
+    words, 
+    className,
+    delay = 0 
+}: { 
+    words: string; 
+    className?: string;
+    delay?: number;
+}) {
+    const [scope, animate] = useAnimate();
+    const wordsArray = words.split(" ");
     
     useEffect(() => {
-        if (currentIndex < text.length) {
-            const timeout = setTimeout(() => {
-                setDisplayedText(prev => prev + text[currentIndex]);
-                setCurrentIndex(prev => prev + 1);
-            }, 50);
-            return () => clearTimeout(timeout);
-        } else if (onComplete) {
-            onComplete();
-        }
-    }, [currentIndex, text, onComplete]);
+        const timer = setTimeout(() => {
+            animate(
+                "span",
+                { opacity: 1, filter: "blur(0px)" },
+                { duration: 0.4, delay: stagger(0.08) }
+            );
+        }, delay * 1000);
+        
+        return () => clearTimeout(timer);
+    }, [animate, delay]);
     
     return (
-        <span>
-            {displayedText}
-            {currentIndex < text.length && (
+        <motion.div ref={scope} className={cn("inline", className)}>
+            {wordsArray.map((word, idx) => (
                 <motion.span
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
-                    className="text-cyan-400"
+                    key={word + idx}
+                    className="opacity-0 inline-block"
+                    style={{ filter: "blur(8px)" }}
                 >
-                    |
+                    {word}{idx < wordsArray.length - 1 ? "\u00A0" : ""}
                 </motion.span>
-            )}
-        </span>
+            ))}
+        </motion.div>
     );
-};
+}
 
-// Search result item
-const SearchResult = ({ title, source, delay }: { title: string; source: string; delay: number }) => (
-    <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay, duration: 0.3 }}
-        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-neutral-800/50 border border-neutral-700/50"
-    >
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-4 h-4 text-white" />
-        </div>
-        <div className="flex-1 min-w-0">
-            <p className="text-sm text-white truncate">{title}</p>
-            <p className="text-xs text-neutral-500">{source}</p>
-        </div>
-    </motion.div>
-);
+// Animated counter for stats
+function AnimatedNumber({ value, delay = 0 }: { value: number; delay?: number }) {
+    const [displayValue, setDisplayValue] = useState(0);
+    
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const duration = 1000;
+            const steps = 30;
+            const increment = value / steps;
+            let current = 0;
+            
+            const interval = setInterval(() => {
+                current += increment;
+                if (current >= value) {
+                    setDisplayValue(value);
+                    clearInterval(interval);
+                } else {
+                    setDisplayValue(Math.floor(current));
+                }
+            }, duration / steps);
+            
+            return () => clearInterval(interval);
+        }, delay * 1000);
+        
+        return () => clearTimeout(timer);
+    }, [value, delay]);
+    
+    return <span>{displayValue.toLocaleString()}</span>;
+}
 
 interface OnboardingProps {
     onComplete: () => void;
@@ -99,7 +116,7 @@ interface OnboardingProps {
 const steps = [
     { id: 'welcome' },
     { id: 'connect' },
-    { id: 'search' },
+    { id: 'features' },
     { id: 'ready' },
 ];
 
@@ -116,7 +133,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     };
 
     return (
-        <div className="fixed inset-0 overflow-hidden">
+        <div className="fixed inset-0 overflow-hidden bg-neutral-950">
             <AnimatePresence mode="wait">
                 {/* Step 0: Welcome with Lamp Effect */}
                 {currentStep === 0 && (
@@ -127,11 +144,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                         exit={{ opacity: 0 }}
                         className="h-full w-full"
                     >
-                        {/* Background effects */}
-                        <StarsBackground className="absolute inset-0" />
-                        <ShootingStars />
-                        <LampContainer className="min-h-screen bg-slate-950">
-                            <motion.h1
+                        <LampContainer className="min-h-screen bg-neutral-950">
+                            <motion.div
                                 initial={{ opacity: 0.5, y: 100 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{
@@ -139,24 +153,20 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                                     duration: 0.8,
                                     ease: "easeInOut",
                                 }}
-                                className="bg-gradient-to-br from-slate-100 to-slate-400 py-4 bg-clip-text text-center text-4xl font-bold tracking-tight text-transparent md:text-7xl"
+                                className="text-center"
                             >
-                                Your Memories <br />
-                                <span className="text-cyan-400">Unified</span>
-                            </motion.h1>
-                            <motion.p
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.5, duration: 0.8 }}
-                                className="mt-4 text-center text-slate-400 max-w-lg mx-auto text-lg"
-                            >
-                                Stop searching through endless chat history. All your AI conversations in one powerful, searchable knowledge base.
-                            </motion.p>
+                                <h1 className="bg-gradient-to-br from-neutral-100 to-neutral-400 py-4 bg-clip-text text-4xl font-light tracking-tight text-transparent md:text-7xl">
+                                    Your Knowledge Base
+                                </h1>
+                                <p className="mt-4 text-neutral-500 max-w-lg mx-auto text-lg">
+                                    All your AI conversations in one searchable place
+                                </p>
+                            </motion.div>
                         </LampContainer>
                     </motion.div>
                 )}
 
-                {/* Step 1: Connect Assistants with Shooting Stars */}
+                {/* Step 1: Connect with Orbiting Circles */}
                 {currentStep === 1 && (
                     <motion.div
                         key="step-1"
@@ -165,227 +175,244 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                         exit={{ opacity: 0 }}
                         className="h-full w-full bg-neutral-950 relative"
                     >
-                        {/* Background effects */}
-                        <StarsBackground className="absolute inset-0" />
-                        <ShootingStars />
+                        <StarsBackground className="absolute inset-0 opacity-30" starDensity={0.0002} />
                         
-                        <div className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-                            <motion.h2
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="text-4xl md:text-6xl lg:text-7xl font-bold text-center text-white mb-4"
-                            >
-                                Connect your{" "}
-                                <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">assistants</span>
-                            </motion.h2>
-                            
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 }}
-                                className="text-xl md:text-2xl text-neutral-400 text-center"
-                            >
-                                Seamlessly import from
-                                <FlipWords 
-                                    words={['Claude', 'ChatGPT', 'Gemini', 'Perplexity', 'Grok']} 
-                                    className="text-cyan-400 font-semibold"
+                        <div className="min-h-screen flex flex-col items-center justify-center px-6 relative z-10">
+                            {/* Header */}
+                            <div className="text-center mb-8">
+                                <TextGenerate 
+                                    words="Connect Your Assistants" 
+                                    className="text-3xl md:text-5xl font-light text-white tracking-tight"
+                                    delay={0}
                                 />
-                            </motion.div>
+                                <div className="mt-4">
+                                    <TextGenerate 
+                                        words="Seamlessly import from all your AI tools" 
+                                        className="text-neutral-500"
+                                        delay={0.4}
+                                    />
+                                </div>
+                            </div>
                             
                             {/* Orbiting Circles */}
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.2, duration: 0.6 }}
-                                className="relative flex h-[420px] w-full max-w-[600px] items-center justify-center overflow-hidden mt-8"
+                                transition={{ delay: 0.6, duration: 0.6 }}
+                                className="relative flex h-[400px] w-full max-w-[500px] items-center justify-center overflow-hidden"
                             >
-                                {/* Center element - Your Memories hub */}
-                                <div className="absolute z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 shadow-2xl shadow-cyan-500/30">
-                                    <Sparkles className="h-10 w-10 text-white" />
+                                {/* Center element - Brain hub */}
+                                <div className="absolute z-10 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-900 border border-neutral-800">
+                                    <Brain className="h-10 w-10 text-neutral-400" />
                                 </div>
                                 
                                 {/* Inner orbit - 3 icons */}
                                 <OrbitingCircles radius={100} duration={25} iconSize={48}>
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#10A37F] shadow-lg shadow-[#10A37F]/30">
-                                        <OpenAIIcon className="h-6 w-6 text-white" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800">
+                                        <OpenAIIcon className="h-6 w-6 text-neutral-400" />
                                     </div>
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#D4A27F] shadow-lg shadow-[#D4A27F]/30">
-                                        <ClaudeIcon className="h-6 w-6 text-[#1A1915]" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800">
+                                        <ClaudeIcon className="h-6 w-6 text-neutral-400" />
                                     </div>
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-lg shadow-purple-500/30">
-                                        <GeminiIcon className="h-6 w-6 text-white" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800">
+                                        <GeminiIcon className="h-6 w-6 text-neutral-400" />
                                     </div>
                                 </OrbitingCircles>
                                 
                                 {/* Outer orbit - 2 icons, reversed */}
                                 <OrbitingCircles radius={170} duration={30} reverse iconSize={48}>
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#22B8CD] shadow-lg shadow-[#22B8CD]/30">
-                                        <PerplexityIcon className="h-6 w-6 text-white" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800">
+                                        <PerplexityIcon className="h-6 w-6 text-neutral-400" />
                                     </div>
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black border border-neutral-700 shadow-lg">
-                                        <GrokIcon className="h-6 w-6 text-white" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-900 border border-neutral-800">
+                                        <GrokIcon className="h-6 w-6 text-neutral-400" />
                                     </div>
                                 </OrbitingCircles>
                             </motion.div>
+
+                            {/* Source labels */}
+                            <motion.p
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 1 }}
+                                className="text-xs text-neutral-600 mt-4"
+                            >
+                                ChatGPT, Claude, Gemini, Perplexity, Grok
+                            </motion.p>
                         </div>
                     </motion.div>
                 )}
 
-                {/* Step 2: Instant Recall with Shooting Stars & Typewriter */}
+                {/* Step 2: Features */}
                 {currentStep === 2 && (
                     <motion.div
                         key="step-2"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="h-full w-full bg-neutral-950 relative"
+                        className="h-full w-full flex flex-col items-center justify-center px-6 bg-neutral-950"
                     >
-                        {/* Background effects */}
-                        <StarsBackground className="absolute inset-0" starDensity={0.0003} />
-                        <ShootingStars 
-                            starColor="#22d3ee"
-                            trailColor="#6366f1"
-                        />
+                        <StarsBackground className="absolute inset-0 opacity-20" starDensity={0.0002} />
                         
-                        <div className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-                            <motion.h2
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5 }}
-                                className="text-4xl md:text-6xl lg:text-7xl font-bold text-white text-center"
-                            >
-                                Instant{" "}
-                                <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                                    Recall
-                                </span>
-                            </motion.h2>
-                            
-                            <motion.p
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2, duration: 0.5 }}
-                                className="mt-6 text-xl md:text-2xl text-neutral-400 text-center max-w-2xl"
-                            >
-                                Just ask. We remember the details so you don't have to.
-                            </motion.p>
-                            
-                            {/* Search demo with typewriter */}
+                        <div className="max-w-4xl mx-auto relative z-10">
+                            {/* Header */}
+                            <div className="text-center mb-16">
+                                <TextGenerate 
+                                    words="How it works" 
+                                    className="text-3xl md:text-4xl font-light text-white tracking-tight"
+                                    delay={0}
+                                />
+                            </div>
+
+                            {/* Feature cards */}
+                            <div className="grid md:grid-cols-3 gap-6">
+                                {/* Feature 1 */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.3, duration: 0.5 }}
+                                    className="p-8 rounded-2xl bg-neutral-900/50 border border-neutral-800 relative overflow-hidden group"
+                                >
+                                    <BorderBeam duration={8} size={80} className="from-transparent via-neutral-700 to-transparent opacity-0 group-hover:opacity-40 transition-opacity" />
+                                    <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center mb-6">
+                                        <MessageSquare className="w-5 h-5 text-neutral-400" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-white mb-3">Capture</h3>
+                                    <p className="text-sm text-neutral-500 leading-relaxed">
+                                        Automatically imports conversations from your AI assistants as you chat
+                                    </p>
+                                </motion.div>
+
+                                {/* Feature 2 */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.5, duration: 0.5 }}
+                                    className="p-8 rounded-2xl bg-neutral-900/50 border border-neutral-800 relative overflow-hidden group"
+                                >
+                                    <BorderBeam duration={8} size={80} className="from-transparent via-neutral-700 to-transparent opacity-0 group-hover:opacity-40 transition-opacity" />
+                                    <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center mb-6">
+                                        <Database className="w-5 h-5 text-neutral-400" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-white mb-3">Extract</h3>
+                                    <p className="text-sm text-neutral-500 leading-relaxed">
+                                        Extracts key insights, entities, and facts from every conversation
+                                    </p>
+                                </motion.div>
+
+                                {/* Feature 3 */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.7, duration: 0.5 }}
+                                    className="p-8 rounded-2xl bg-neutral-900/50 border border-neutral-800 relative overflow-hidden group"
+                                >
+                                    <BorderBeam duration={8} size={80} className="from-transparent via-neutral-700 to-transparent opacity-0 group-hover:opacity-40 transition-opacity" />
+                                    <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center mb-6">
+                                        <Network className="w-5 h-5 text-neutral-400" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-white mb-3">Connect</h3>
+                                    <p className="text-sm text-neutral-500 leading-relaxed">
+                                        Builds a knowledge graph linking related concepts and ideas
+                                    </p>
+                                </motion.div>
+                            </div>
+
+                            {/* Bottom stat preview */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4, duration: 0.5 }}
-                                className="mt-12 w-full max-w-xl space-y-3"
+                                transition={{ delay: 1, duration: 0.5 }}
+                                className="mt-12 flex items-center justify-center gap-12"
                             >
-                                <div className="flex items-center gap-4 px-6 py-4 rounded-2xl bg-neutral-900/80 border border-neutral-800 backdrop-blur-sm">
-                                    <Search className="w-5 h-5 text-cyan-500 flex-shrink-0" />
-                                    <span className="text-neutral-300 text-lg">
-                                        <TypewriterText 
-                                            text="What did Claude say about React patterns?"
-                                        />
-                                    </span>
+                                <div className="text-center">
+                                    <div className="text-3xl font-light text-white">
+                                        <AnimatedNumber value={100} delay={1.2} />%
+                                    </div>
+                                    <div className="text-xs text-neutral-600 uppercase tracking-wider mt-1">Local</div>
                                 </div>
-                                
-                                {/* Animated search results */}
-                                <div className="space-y-2">
-                                    <SearchResult 
-                                        title="Use composition over inheritance for components..."
-                                        source="Claude • 2 days ago"
-                                        delay={2.5}
-                                    />
-                                    <SearchResult 
-                                        title="The Container/Presenter pattern separates logic..."
-                                        source="Claude • 1 week ago"
-                                        delay={2.8}
-                                    />
-                                    <SearchResult 
-                                        title="Custom hooks are great for reusable stateful logic..."
-                                        source="Claude • 2 weeks ago"
-                                        delay={3.1}
-                                    />
+                                <div className="w-px h-8 bg-neutral-800" />
+                                <div className="text-center">
+                                    <div className="text-3xl font-light text-white">
+                                        <AnimatedNumber value={0} delay={1.3} />
+                                    </div>
+                                    <div className="text-xs text-neutral-600 uppercase tracking-wider mt-1">Cloud Storage</div>
+                                </div>
+                                <div className="w-px h-8 bg-neutral-800" />
+                                <div className="text-center">
+                                    <div className="text-3xl font-light text-white tabular-nums">∞</div>
+                                    <div className="text-xs text-neutral-600 uppercase tracking-wider mt-1">Private</div>
                                 </div>
                             </motion.div>
                         </div>
                     </motion.div>
                 )}
 
-                {/* Step 3: Ready to start with Spotlight */}
+                {/* Step 3: Ready */}
                 {currentStep === 3 && (
                     <motion.div
                         key="step-3"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="h-full w-full bg-neutral-950 relative overflow-hidden"
+                        className="h-full w-full flex flex-col items-center justify-center px-6 bg-neutral-950"
                     >
-                        {/* Starry background */}
-                        <StarsBackground className="absolute inset-0" />
-                        <ShootingStars />
+                        <StarsBackground className="absolute inset-0 opacity-20" starDensity={0.0002} />
                         
-                        {/* Spotlight effect */}
-                        <Spotlight
-                            className="-top-40 left-0 md:left-60 md:-top-20"
-                            fill="#22d3ee"
-                        />
-                        <Spotlight
-                            className="top-10 left-full -translate-x-[50%] md:-top-20"
-                            fill="#6366f1"
-                        />
-                        
-                        <div className="min-h-screen flex flex-col items-center justify-center px-4 relative z-10">
-                            {/* Animated icon */}
+                        <div className="max-w-xl mx-auto text-center relative z-10">
+                            {/* Success icon */}
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.5, rotate: -180 }}
-                                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                                transition={{ 
-                                    duration: 0.8, 
-                                    type: "spring",
-                                    stiffness: 100
-                                }}
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
                                 className="mb-12"
                             >
-                                <div className="relative">
-                                    <div className="h-28 w-28 bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-cyan-500/30">
-                                        <Check className="w-14 h-14 text-white" strokeWidth={2.5} />
-                                    </div>
-                                    {/* Glow ring */}
+                                <div className="w-24 h-24 mx-auto rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center relative">
+                                    <motion.div
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: 0.3 }}
+                                    >
+                                        <Check className="w-12 h-12 text-neutral-400" strokeWidth={1.5} />
+                                    </motion.div>
+                                    {/* Pulse ring */}
                                     <motion.div
                                         initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: [0.5, 0.2, 0.5], scale: [1, 1.2, 1] }}
+                                        animate={{ opacity: [0.3, 0], scale: [1, 1.5] }}
                                         transition={{ duration: 2, repeat: Infinity }}
-                                        className="absolute inset-0 -m-2 rounded-[2rem] border border-cyan-500/50"
+                                        className="absolute inset-0 rounded-full border border-neutral-700"
                                     />
                                 </div>
                             </motion.div>
+
+                            {/* Ready message */}
+                            <div className="mb-4">
+                                <TextGenerate 
+                                    words="You're all set" 
+                                    className="text-4xl md:text-5xl font-light text-white tracking-tight"
+                                    delay={0.4}
+                                />
+                            </div>
                             
-                            <motion.h2
-                                initial={{ opacity: 0, y: 30 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3, duration: 0.6 }}
-                                className="text-5xl md:text-7xl lg:text-8xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-b from-neutral-50 to-neutral-400"
-                            >
-                                You're all set
-                            </motion.h2>
-                            
-                            <motion.p
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.5, duration: 0.5 }}
-                                className="mt-6 text-xl md:text-2xl text-neutral-400 text-center max-w-xl"
-                            >
-                                Your personal AI knowledge base awaits.
-                            </motion.p>
-                            
-                            {/* Feature highlights */}
+                            <div className="mb-12">
+                                <TextGenerate 
+                                    words="Start using your AI assistants and watch your knowledge base grow" 
+                                    className="text-neutral-500"
+                                    delay={0.8}
+                                />
+                            </div>
+
+                            {/* Quick tips */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.7, duration: 0.5 }}
-                                className="mt-12 flex gap-6"
+                                transition={{ delay: 1.2 }}
+                                className="flex flex-wrap items-center justify-center gap-4"
                             >
-                                {['All chats synced', 'Instant search', 'Always learning'].map((feature, i) => (
-                                    <div key={feature} className="flex items-center gap-2 text-neutral-500">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
-                                        <span className="text-sm">{feature}</span>
+                                {['Chats sync automatically', 'Search across all sources', 'Explore your knowledge graph'].map((tip) => (
+                                    <div key={tip} className="flex items-center gap-2 text-neutral-600">
+                                        <div className="w-1 h-1 rounded-full bg-neutral-700" />
+                                        <span className="text-sm">{tip}</span>
                                     </div>
                                 ))}
                             </motion.div>
@@ -394,35 +421,37 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 )}
             </AnimatePresence>
 
-            {/* Navigation - Fixed at bottom */}
-            <div className="fixed bottom-10 md:bottom-16 left-0 right-0 flex flex-col items-center gap-6 z-50">
+            {/* Navigation */}
+            <div className="fixed bottom-12 left-0 right-0 flex flex-col items-center gap-6 z-50">
                 {/* Progress dots */}
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                     {steps.map((_, idx) => (
                         <motion.div
                             key={idx}
                             initial={false}
                             animate={{
-                                width: currentStep === idx ? 32 : 6,
-                                backgroundColor: currentStep === idx ? "#fff" : "rgba(255,255,255,0.2)"
+                                width: currentStep === idx ? 24 : 6,
+                                backgroundColor: currentStep === idx ? "rgb(163 163 163)" : "rgb(64 64 64)"
                             }}
-                            className="h-1.5 rounded-full"
+                            className="h-1 rounded-full"
                             transition={{ duration: 0.3 }}
                         />
                     ))}
                 </div>
 
-                <HoverBorderGradient
-                    containerClassName="rounded-full"
-                    as="button"
-                    className="dark:bg-black bg-white text-black dark:text-white flex items-center space-x-2 px-8 py-3 font-medium"
+                {/* Next button */}
+                <motion.button
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
                     onClick={handleNext}
+                    className="flex items-center gap-2 px-8 py-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700 hover:text-white transition-all duration-200 group"
                 >
-                    <span className="text-base">
+                    <span className="text-sm font-medium">
                         {currentStep === steps.length - 1 ? 'Get Started' : 'Continue'}
                     </span>
-                    <ArrowRight className="w-4 h-4" />
-                </HoverBorderGradient>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </motion.button>
             </div>
         </div>
     );

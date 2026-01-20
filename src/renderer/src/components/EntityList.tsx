@@ -84,13 +84,13 @@ function EntityCard({
                 <div className="flex items-center gap-3 mt-3">
                     <span className={cn(
                         "px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md",
-                        "bg-purple-500/15 text-purple-300 border border-purple-500/20"
+                        "bg-neutral-800 text-neutral-400 border border-neutral-700"
                     )}>
                         {entity.type || 'Unknown'}
                     </span>
                     <span className={cn(
                         "px-2 py-0.5 text-[10px] font-medium rounded-md",
-                        "bg-cyan-500/10 text-cyan-400"
+                        "bg-neutral-800 text-neutral-400"
                     )}>
                         {entity.fact_count} {entity.fact_count === 1 ? 'fact' : 'facts'}
                     </span>
@@ -180,17 +180,17 @@ function EntityDetailsPanel({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="relative p-6 rounded-2xl bg-gradient-to-br from-neutral-900/80 to-neutral-950/80 border border-neutral-800 overflow-hidden"
+            className="relative p-6 rounded-2xl bg-neutral-900/60 border border-neutral-800 overflow-hidden"
         >
             {/* Subtle background glow effect */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl" />
+            <div className="absolute top-0 right-0 w-48 h-48 bg-neutral-500/5 rounded-full blur-3xl" />
 
             {/* Border beam */}
             <BorderBeam
                 size={200}
                 duration={6}
                 borderWidth={1.5}
-                className="from-purple-500/40 via-cyan-500/40 to-purple-500/40"
+                className="from-neutral-500/40 via-neutral-400/40 to-neutral-500/40"
             />
 
             <div className="relative z-10">
@@ -209,8 +209,8 @@ function EntityDetailsPanel({
                     </div>
                     <span className={cn(
                         "px-4 py-1.5 text-sm font-semibold rounded-full",
-                        "bg-gradient-to-r from-purple-500/20 to-pink-500/20",
-                        "text-purple-300 border border-purple-500/30"
+                        "bg-neutral-800",
+                        "text-neutral-300 border border-neutral-700"
                     )}>
                         {details.entity.type || 'Unknown'}
                     </span>
@@ -243,7 +243,7 @@ function EntityDetailsPanel({
                         marginTop: 16
                     }}>
                         <h3 className="text-lg font-semibold text-white">Facts</h3>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-800 text-neutral-400 border border-neutral-700">
                             {details.facts.length}
                         </span>
                     </div>
@@ -289,7 +289,7 @@ function EntityDetailsPanel({
                                                 <BorderBeam
                                                     duration={6}
                                                     size={400}
-                                                    className="from-transparent via-purple-500 to-transparent"
+                                                    className="from-transparent via-neutral-500 to-transparent"
                                                 />
                                             </ModalContent>
                                         </ModalBody>
@@ -451,7 +451,7 @@ export function EntityList({ appName }: EntityListProps) {
                                 "w-full pl-11 pr-12 py-3 rounded-xl",
                                 "bg-neutral-900/80 border border-neutral-800",
                                 "text-white text-sm placeholder-neutral-600",
-                                "focus:outline-none focus:border-purple-500/50",
+                                "focus:outline-none focus:border-neutral-600",
                                 "transition-colors"
                             )}
                         />
@@ -461,7 +461,7 @@ export function EntityList({ appName }: EntityListProps) {
                             className={cn(
                                 "absolute right-2 top-1/2 -translate-y-1/2",
                                 "h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900/80",
-                                "text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50",
+                                "text-neutral-400 hover:text-white hover:border-neutral-600",
                                 "flex items-center justify-center transition-all",
                                 (isRefreshing || loading) && "opacity-50 cursor-not-allowed",
                                 "z-20"
@@ -484,8 +484,8 @@ export function EntityList({ appName }: EntityListProps) {
                 {loading && (
                     <div className="flex items-center justify-center py-12">
                         <div className="relative">
-                            <div className="w-10 h-10 border-2 border-purple-500/30 rounded-full" />
-                            <div className="absolute top-0 left-0 w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-10 h-10 border-2 border-neutral-700 rounded-full" />
+                            <div className="absolute top-0 left-0 w-10 h-10 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
                         </div>
                     </div>
                 )}

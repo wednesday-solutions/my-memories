@@ -352,8 +352,8 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                     <div className="ml-auto text-sm text-neutral-500">
                         {loading ? (
                             <span className="flex items-center gap-2">
-                                <span className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                                Loading…
+                                <span className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
+                                Loading...
                             </span>
                         ) : (
                             `${graph.nodes.length} nodes • ${graph.edges.length} edges`
@@ -408,8 +408,8 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                                 className="absolute inset-0 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm z-10"
                             >
                                 <div className="relative">
-                                    <div className="w-16 h-16 border-2 border-purple-500/30 rounded-full" />
-                                    <div className="absolute top-0 left-0 w-16 h-16 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-16 h-16 border-2 border-neutral-700 rounded-full" />
+                                    <div className="absolute top-0 left-0 w-16 h-16 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
                                 </div>
                             </motion.div>
                         )}
@@ -430,7 +430,7 @@ export function EntityGraph({ appName }: EntityGraphProps) {
                             size={180}
                             duration={5}
                             borderWidth={1.5}
-                            className="from-purple-500/50 via-cyan-500/50 to-purple-500/50"
+                            className="from-neutral-500/50 via-neutral-400/50 to-neutral-500/50"
                         />
                     )}
 

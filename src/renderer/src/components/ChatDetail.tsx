@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { cn } from '@renderer/lib/utils';
 import { BorderBeam } from './ui/border-beam';
+import { ProgressiveBlur } from './ui/progressive-blur';
 
 interface Memory {
     id: number;
@@ -39,7 +40,7 @@ const markdownComponents: any = {
         <p className="mb-2 last:mb-0 text-neutral-200 text-sm">{children}</p>
     ),
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-        <a href={href} target="_blank" rel="noreferrer" className="text-cyan-300 underline">{children}</a>
+        <a href={href} target="_blank" rel="noreferrer" className="text-neutral-300 underline hover:text-white">{children}</a>
     ),
     code: ({ inline, children }: { inline?: boolean; children?: React.ReactNode }) => (
         <code className={inline ? "rounded bg-white/10 px-1 py-0.5 text-xs" : "block whitespace-pre-wrap rounded-lg bg-white/10 p-2 text-xs"}>{children}</code>
@@ -67,14 +68,14 @@ function MemoryCardFull({ memory, onClick }: { memory: Memory; onClick: () => vo
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.01 }}
             onClick={onClick}
-            className="group p-4 rounded-xl cursor-pointer transition-all bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border border-cyan-500/20 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10"
+            className="group p-4 rounded-xl cursor-pointer transition-all bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60"
         >
             <p className="text-sm text-neutral-200 leading-relaxed">
                 {memory.content}
             </p>
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-800">
                 <span className="text-[10px] text-neutral-500">{formatTime(memory.created_at)}</span>
-                <span className="text-[10px] text-cyan-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[10px] text-neutral-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     View in Memories
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -93,13 +94,13 @@ function MemoryCard({ memory, onClick }: { memory: Memory; onClick: () => void }
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ scale: 1.02 }}
             onClick={onClick}
-            className="group p-3 rounded-xl cursor-pointer transition-all bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border border-cyan-500/20 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10"
+            className="group p-3 rounded-xl cursor-pointer transition-all bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60"
         >
             <p className="text-xs text-neutral-300 line-clamp-2 leading-relaxed">
                 {memory.content}
             </p>
             <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] text-cyan-400 flex items-center gap-1">
+                <span className="text-[10px] text-neutral-400 flex items-center gap-1">
                     View details
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -123,14 +124,14 @@ function EntityCardFull({ entity, onClick }: { entity: Entity; onClick: () => vo
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.01 }}
             onClick={onClick}
-            className="group p-4 rounded-xl cursor-pointer transition-all bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/10"
+            className="group p-4 rounded-xl cursor-pointer transition-all bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60"
         >
             <div className="flex items-center gap-2 mb-2">
                 <span className="font-semibold text-white">{entity.name}</span>
-                <span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                <span className="px-2 py-0.5 text-[10px] font-semibold uppercase rounded bg-neutral-800 text-neutral-400 border border-neutral-700">
                     {entity.type || 'Unknown'}
                 </span>
-                <span className="px-2 py-0.5 text-[10px] rounded bg-cyan-500/10 text-cyan-400">
+                <span className="px-2 py-0.5 text-[10px] rounded bg-neutral-800 text-neutral-400">
                     {entity.fact_count} facts
                 </span>
             </div>
@@ -139,7 +140,7 @@ function EntityCardFull({ entity, onClick }: { entity: Entity; onClick: () => vo
             )}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-800">
                 <span className="text-[10px] text-neutral-500">{formatTime(entity.updated_at)}</span>
-                <span className="text-[10px] text-purple-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[10px] text-neutral-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     View Details
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -158,11 +159,11 @@ function EntityCard({ entity, onClick }: { entity: Entity; onClick: () => void }
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ scale: 1.02 }}
             onClick={onClick}
-            className="group p-3 rounded-xl cursor-pointer transition-all bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-500/20 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/10"
+            className="group p-3 rounded-xl cursor-pointer transition-all bg-neutral-900/60 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/60"
         >
             <div className="flex items-center gap-2">
                 <span className="font-medium text-sm text-white truncate">{entity.name}</span>
-                <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded bg-purple-500/20 text-purple-300">
+                <span className="px-1.5 py-0.5 text-[9px] font-semibold uppercase rounded bg-neutral-800 text-neutral-400">
                     {entity.type || 'Unknown'}
                 </span>
             </div>
@@ -170,7 +171,7 @@ function EntityCard({ entity, onClick }: { entity: Entity; onClick: () => void }
                 <p className="text-[11px] text-neutral-400 line-clamp-1 mt-1">{entity.summary}</p>
             )}
             <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] text-purple-400 flex items-center gap-1">
+                <span className="text-[10px] text-neutral-400 flex items-center gap-1">
                     {entity.fact_count} facts · View details
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -320,8 +321,8 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
             {loading && (
                 <div className="flex items-center justify-center py-16 flex-1">
                     <div className="relative">
-                        <div className="w-10 h-10 border-2 border-purple-500/30 rounded-full" />
-                        <div className="absolute top-0 left-0 w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-10 h-10 border-2 border-neutral-700 rounded-full" />
+                        <div className="absolute top-0 left-0 w-10 h-10 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                 </div>
             )}
@@ -338,14 +339,14 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                             exit={{ opacity: 0 }}
                             className="flex-1 p-4 overflow-y-auto"
                         >
-                            <div className="relative min-h-full rounded-2xl p-5 bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 border border-amber-500/30">
-                                <BorderBeam size={200} duration={10} borderWidth={1.5} className="from-amber-500/40 via-orange-500/40 to-amber-500/40" />
+                            <div className="relative min-h-full rounded-2xl p-5 bg-neutral-900/60 border border-neutral-800">
+                                <BorderBeam size={200} duration={10} borderWidth={1.5} className="from-neutral-600/40 via-neutral-500/40 to-neutral-600/40" />
 
                                 <SectionHeader
                                     title="Summary"
                                     count={summary ? 1 : 0}
-                                    icon={<svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-                                    colorClass="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30"
+                                    icon={<svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                                    colorClass="bg-neutral-800/60 border border-neutral-700"
                                     onExpand={() => handleExpand('summary')}
                                     isExpanded
                                 />
@@ -375,32 +376,41 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                             exit={{ opacity: 0 }}
                             className="flex-1 p-4 overflow-hidden"
                         >
-                            <div className="relative h-full rounded-2xl p-5 bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 border border-cyan-500/30 overflow-hidden flex flex-col">
-                                <BorderBeam size={200} duration={8} borderWidth={1.5} className="from-cyan-500/40 via-blue-500/40 to-cyan-500/40" />
+                            <div className="relative h-full rounded-2xl p-5 bg-neutral-900/60 border border-neutral-800 overflow-hidden flex flex-col">
+                                <BorderBeam size={200} duration={8} borderWidth={1.5} className="from-neutral-600/40 via-neutral-500/40 to-neutral-600/40" />
 
                                 <SectionHeader
                                     title="Memories"
                                     count={memories.length}
-                                    icon={<svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-                                    colorClass="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30"
+                                    icon={<svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
+                                    colorClass="bg-neutral-800/60 border border-neutral-700"
                                     onExpand={() => handleExpand('memories')}
                                     isExpanded
                                 />
-                                <div className="flex-1 overflow-y-auto pr-2 relative z-10">
-                                    {memories.length > 0 ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {memories.map((memory) => (
-                                                <MemoryCardFull
-                                                    key={memory.id}
-                                                    memory={memory}
-                                                    onClick={() => onSelectMemory?.(memory.id)}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full text-center">
-                                            <p className="text-neutral-500">No memories yet</p>
-                                        </div>
+                                <div className="relative flex-1 min-h-0">
+                                    <div className="absolute inset-0 overflow-y-auto pr-2 pb-16">
+                                        {memories.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {memories.map((memory) => (
+                                                    <MemoryCardFull
+                                                        key={memory.id}
+                                                        memory={memory}
+                                                        onClick={() => onSelectMemory?.(memory.id)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                                <p className="text-neutral-500">No memories yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {memories.length > 4 && (
+                                        <ProgressiveBlur
+                                            height="60px"
+                                            position="bottom"
+                                            className="pointer-events-none"
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -416,32 +426,41 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                             exit={{ opacity: 0 }}
                             className="flex-1 p-4 overflow-hidden"
                         >
-                            <div className="relative h-full rounded-2xl p-5 bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 border border-purple-500/30 overflow-hidden flex flex-col">
-                                <BorderBeam size={200} duration={8} delay={2} borderWidth={1.5} className="from-purple-500/40 via-pink-500/40 to-purple-500/40" />
+                            <div className="relative h-full rounded-2xl p-5 bg-neutral-900/60 border border-neutral-800 overflow-hidden flex flex-col">
+                                <BorderBeam size={200} duration={8} delay={2} borderWidth={1.5} className="from-neutral-600/40 via-neutral-500/40 to-neutral-600/40" />
 
                                 <SectionHeader
                                     title="Entities"
                                     count={entities.length}
-                                    icon={<svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-                                    colorClass="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30"
+                                    icon={<svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                                    colorClass="bg-neutral-800/60 border border-neutral-700"
                                     onExpand={() => handleExpand('entities')}
                                     isExpanded
                                 />
-                                <div className="flex-1 overflow-y-auto pr-2 relative z-10">
-                                    {entities.length > 0 ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {entities.map((entity) => (
-                                                <EntityCardFull
-                                                    key={entity.id}
-                                                    entity={entity}
-                                                    onClick={() => onSelectEntity?.(entity.id)}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full text-center">
-                                            <p className="text-neutral-500">No entities yet</p>
-                                        </div>
+                                <div className="relative flex-1 min-h-0">
+                                    <div className="absolute inset-0 overflow-y-auto pr-2 pb-16">
+                                        {entities.length > 0 ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {entities.map((entity) => (
+                                                    <EntityCardFull
+                                                        key={entity.id}
+                                                        entity={entity}
+                                                        onClick={() => onSelectEntity?.(entity.id)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                                <p className="text-neutral-500">No entities yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {entities.length > 4 && (
+                                        <ProgressiveBlur
+                                            height="60px"
+                                            position="bottom"
+                                            className="pointer-events-none"
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -461,17 +480,17 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="relative flex-[2] min-h-0 rounded-2xl p-4 bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 border border-amber-500/20 overflow-hidden cursor-pointer hover:border-amber-500/40 transition-colors"
+                                className="relative flex-[2] min-h-0 rounded-2xl p-4 bg-neutral-900/60 border border-neutral-800 overflow-hidden cursor-pointer hover:border-neutral-700 transition-colors"
                                 onClick={() => handleExpand('summary')}
                             >
-                                <BorderBeam size={150} duration={10} borderWidth={1} className="from-amber-500/30 via-orange-500/30 to-amber-500/30" />
+                                <BorderBeam size={150} duration={10} borderWidth={1} className="from-neutral-600/30 via-neutral-500/30 to-neutral-600/30" />
 
                                 <div className="relative z-10 h-full flex flex-col">
                                     <SectionHeader
                                         title="Summary"
                                         count={summary ? 1 : 0}
-                                        icon={<svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-                                        colorClass="bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30"
+                                        icon={<svg className="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                                        colorClass="bg-neutral-800/60 border border-neutral-700"
                                         onExpand={() => handleExpand('summary')}
                                     />
                                     <div className="flex-1 overflow-y-auto pr-2">
@@ -497,17 +516,17 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.1 }}
-                                    className="relative rounded-2xl p-4 bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 border border-cyan-500/20 overflow-hidden flex flex-col cursor-pointer hover:border-cyan-500/40 transition-colors"
+                                    className="relative rounded-2xl p-4 bg-neutral-900/60 border border-neutral-800 overflow-hidden flex flex-col cursor-pointer hover:border-neutral-700 transition-colors"
                                     onClick={() => handleExpand('memories')}
                                 >
-                                    <BorderBeam size={100} duration={8} borderWidth={1} className="from-cyan-500/30 via-blue-500/30 to-cyan-500/30" />
+                                    <BorderBeam size={100} duration={8} borderWidth={1} className="from-neutral-600/30 via-neutral-500/30 to-neutral-600/30" />
 
                                     <div className="relative z-10 flex flex-col h-full">
                                         <SectionHeader
                                             title="Memories"
                                             count={memories.length}
-                                            icon={<svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-                                            colorClass="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30"
+                                            icon={<svg className="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
+                                            colorClass="bg-neutral-800/60 border border-neutral-700"
                                             onExpand={() => handleExpand('memories')}
                                         />
                                         <div className="flex-1 overflow-hidden space-y-2">
@@ -523,7 +542,7 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                                                 </div>
                                             )}
                                             {memories.length > 3 && (
-                                                <p className="text-[10px] text-cyan-400 text-center">+{memories.length - 3} more</p>
+                                                <p className="text-[10px] text-neutral-500 text-center">+{memories.length - 3} more</p>
                                             )}
                                         </div>
                                     </div>
@@ -534,17 +553,17 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: 0.15 }}
-                                    className="relative rounded-2xl p-4 bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 border border-purple-500/20 overflow-hidden flex flex-col cursor-pointer hover:border-purple-500/40 transition-colors"
+                                    className="relative rounded-2xl p-4 bg-neutral-900/60 border border-neutral-800 overflow-hidden flex flex-col cursor-pointer hover:border-neutral-700 transition-colors"
                                     onClick={() => handleExpand('entities')}
                                 >
-                                    <BorderBeam size={100} duration={8} delay={2} borderWidth={1} className="from-purple-500/30 via-pink-500/30 to-purple-500/30" />
+                                    <BorderBeam size={100} duration={8} delay={2} borderWidth={1} className="from-neutral-600/30 via-neutral-500/30 to-neutral-600/30" />
 
                                     <div className="relative z-10 flex flex-col h-full">
                                         <SectionHeader
                                             title="Entities"
                                             count={entities.length}
-                                            icon={<svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-                                            colorClass="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30"
+                                            icon={<svg className="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                                            colorClass="bg-neutral-800/60 border border-neutral-700"
                                             onExpand={() => handleExpand('entities')}
                                         />
                                         <div className="flex-1 overflow-hidden space-y-2">
@@ -560,7 +579,7 @@ export function ChatDetail({ sessionId, onBack, onSelectEntity, onSelectMemory }
                                                 </div>
                                             )}
                                             {entities.length > 3 && (
-                                                <p className="text-[10px] text-purple-400 text-center">+{entities.length - 3} more</p>
+                                                <p className="text-[10px] text-neutral-500 text-center">+{entities.length - 3} more</p>
                                             )}
                                         </div>
                                     </div>

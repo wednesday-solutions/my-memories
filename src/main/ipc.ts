@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
@@ -403,6 +403,10 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
   ipcMain.handle('db:get-stats', () => {
       const count = db.prepare('SELECT COUNT(*) as count FROM memories').get();
       return count;
+  });
+
+  ipcMain.handle('db:get-dashboard-stats', () => {
+      return getDashboardStats();
   });
 
   ipcMain.handle('llm:extract', async (_, text: string) => {

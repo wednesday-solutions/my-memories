@@ -5,6 +5,7 @@ import remarkBreaks from 'remark-breaks';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
 import { BorderBeam } from './ui/border-beam';
+import { ProgressiveBlur } from './ui/progressive-blur';
 import { cn } from '@renderer/lib/utils';
 
 interface ChatSession {
@@ -130,30 +131,26 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                 onPointerEnter={handlePointerEnter}
                 onPointerLeave={handlePointerLeave}
             >
-                {/* Glare/Shimmer overlay */}
+                {/* Glare overlay */}
                 <div
                     className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-300 rounded-lg"
                     style={{
-                        background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.4) 0%, rgba(120,200,255,0.2) 25%, rgba(255,255,255,0) 60%)`,
+                        background: `radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 70%)`,
                         opacity: glareStyle.opacity,
                     }}
                 />
-                {/* Rainbow shimmer effect */}
+                {/* Subtle shimmer effect */}
                 <div
-                    className="pointer-events-none absolute inset-0 z-10 mix-blend-color-dodge transition-opacity duration-300 rounded-lg"
+                    className="pointer-events-none absolute inset-0 z-10 mix-blend-overlay transition-opacity duration-300 rounded-lg"
                     style={{
                         background: `
                             radial-gradient(circle at ${glareStyle.x}% ${glareStyle.y}%, 
-                                rgba(255,119,115,0.15) 0%,
-                                rgba(255,237,95,0.1) 15%,
-                                rgba(168,255,95,0.1) 30%,
-                                rgba(131,255,247,0.1) 45%,
-                                rgba(120,148,255,0.1) 60%,
-                                rgba(216,117,255,0.1) 75%,
-                                transparent 90%
+                                rgba(255,255,255,0.08) 0%,
+                                rgba(255,255,255,0.04) 40%,
+                                transparent 70%
                             )
                         `,
-                        opacity: glareStyle.opacity * 2,
+                        opacity: glareStyle.opacity * 1.5,
                     }}
                 />
                 <Item
@@ -172,10 +169,10 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
 
                     <ItemActions className="gap-3">
                         <div className="flex items-center gap-2 text-xs text-neutral-500">
-                            <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                            <span className="px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
                                 {session.memory_count} {session.memory_count === 1 ? 'memory' : 'memories'}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                            <span className="px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
                                 {session.entity_count} {session.entity_count === 1 ? 'entity' : 'entities'}
                             </span>
                             <span className="text-neutral-600">•</span>
@@ -237,14 +234,14 @@ function ChatListItem({ session, formattedTime, onSelect, onDelete }: ChatListIt
                                                     duration={4}
                                                     size={400}
                                                     borderWidth={2}
-                                                    className="from-transparent via-red-500 to-transparent"
+                                                    className="from-transparent via-neutral-500 to-transparent"
                                                 />
                                                 <BorderBeam
                                                     duration={4}
                                                     delay={1}
                                                     size={400}
                                                     borderWidth={2}
-                                                    className="from-transparent via-blue-500 to-transparent"
+                                                    className="from-transparent via-neutral-600 to-transparent"
                                                 />
                                             </ModalContent>
                                         </ModalBody>
@@ -335,7 +332,7 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
                         placeholder="Search chats..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-600 transition-colors"
                     />
                 </div>
                 <button
@@ -343,7 +340,7 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
                     disabled={isRefreshing || loading}
                     className={cn(
                         "h-[46px] w-[46px] rounded-xl border border-neutral-800 bg-neutral-900/80",
-                        "text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/50",
+                        "text-neutral-400 hover:text-white hover:border-neutral-600",
                         "flex items-center justify-center transition-all",
                         (isRefreshing || loading) && "opacity-50 cursor-not-allowed"
                     )}
@@ -362,32 +359,42 @@ export function ChatList({ appName, onSelectSession }: ChatListProps) {
 
             {loading && (
                 <div className="flex items-center justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin" />
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto">
-                <ItemGroup>
-                    {filteredSessions.map(session => (
-                        <ChatListItem
-                            key={session.session_id}
-                            session={session}
-                            formattedTime={formatTime(session.last_activity)}
-                            onSelect={onSelectSession}
-                            onDelete={handleDelete}
-                        />
-                    ))}
-                </ItemGroup>
+            <div className="relative flex-1 min-h-0">
+                <div className="absolute inset-0 overflow-y-auto pb-16">
+                    <ItemGroup>
+                        {filteredSessions.map(session => (
+                            <ChatListItem
+                                key={session.session_id}
+                                session={session}
+                                formattedTime={formatTime(session.last_activity)}
+                                onSelect={onSelectSession}
+                                onDelete={handleDelete}
+                            />
+                        ))}
+                    </ItemGroup>
 
-                {!loading && filteredSessions.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-neutral-800 flex items-center justify-center mb-4">
-                            <svg className="w-8 h-8 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
+                    {!loading && filteredSessions.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-neutral-800 flex items-center justify-center mb-4">
+                                <svg className="w-8 h-8 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                            </div>
+                            <p className="text-neutral-500">No chats found</p>
                         </div>
-                        <p className="text-neutral-500">No chats found</p>
-                    </div>
+                    )}
+                </div>
+                
+                {filteredSessions.length > 3 && (
+                    <ProgressiveBlur
+                        height="80px"
+                        position="bottom"
+                        className="pointer-events-none"
+                    />
                 )}
             </div>
         </div>
