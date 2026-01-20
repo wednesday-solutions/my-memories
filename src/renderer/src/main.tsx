@@ -11,7 +11,6 @@ const options = {
   defaults: '2025-11-30',
 } as const
 
-console.log({ options, key: import.meta.env.VITE_PUBLIC_POSTHOG_API_KEY })
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PostHogProvider options={options} apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_API_KEY}>

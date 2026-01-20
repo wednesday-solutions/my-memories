@@ -173,7 +173,6 @@ function App() {
                   <button
                     key={item.view}
                     onClick={() => {
-                      console.log("button clicked")
                       posthog.capture('button_clicked', { button_name: 'navigation_' + item.view })
                       setViewMode(item.view); setSelectedSessionId(null); setSelectedMemoryId(null); setSelectedEntityId(null);
                     }}

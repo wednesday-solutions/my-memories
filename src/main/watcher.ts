@@ -139,6 +139,92 @@ export class Watcher {
       }
   }
 
+  // Check if a URL is an actual chat page (not pricing, settings, etc.)
+  private static isClaudeChatUrl(url: string): boolean {
+      const raw = (url || '').trim();
+      if (!raw) return false;
+      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      try {
+          const parsed = new URL(withScheme);
+          const pathname = parsed.pathname.toLowerCase();
+          // claude.ai/chat/* or claude.ai/new are chat pages
+          // Exclude: /pricing, /settings, /login, /signup, /api, /docs, etc.
+          return pathname.startsWith('/chat') || pathname === '/new' || pathname === '/';
+      } catch {
+          return false;
+      }
+  }
+
+  private static isChatGPTChatUrl(url: string): boolean {
+      const raw = (url || '').trim();
+      if (!raw) return false;
+      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      try {
+          const parsed = new URL(withScheme);
+          const pathname = parsed.pathname.toLowerCase();
+          // chatgpt.com/c/* or chatgpt.com/g/* (GPTs) or home page are chat pages
+          // Exclude: /auth, /share, /pricing, etc.
+          return pathname.startsWith('/c/') || pathname.startsWith('/g/') || pathname === '/' || pathname === '';
+      } catch {
+          return false;
+      }
+  }
+
+  private static isGeminiChatUrl(url: string): boolean {
+      const raw = (url || '').trim();
+      if (!raw) return false;
+      const withScheme = /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`;
+      try {
+          const parsed = new URL(withScheme);
+          const pathname = parsed.pathname.toLowerCase();
+          // gemini.google.com/app/* or home are chat pages
+          return pathname.startsWith('/app') || pathname === '/' || pathname === '';
+      } catch {
+          return false;
+      }
+  }
+
+  // Sanitize browser names from titles and add -browser suffix for browser-sourced chats
+  private static sanitizeBrowserTitle(title: string | undefined, isBrowser: boolean): string {
+      if (!title) return isBrowser ? 'Untitled Chat-browser' : 'Untitled Chat';
+      
+      // Skip "New tab" type pages - these aren't real chats
+      const lowerTitle = title.toLowerCase();
+      if (lowerTitle.includes('new tab') || lowerTitle === 'new page' || lowerTitle.startsWith('about:')) {
+          return '';  // Empty signals to skip this capture
+      }
+      
+      const browserPatterns = [
+          // Pattern: "Title - Brave" or "Title - Chrome - Work"
+          /\s*[-–—|]\s*(Brave|Chrome|Safari|Firefox|Edge|Arc|Opera)(\s*[-–—|]\s*\w+)?(\s+Browser)?(\s+Window)?$/i,
+          // Pattern: "Brave - Title" at start
+          /^(Brave|Chrome|Safari|Firefox|Edge|Arc|Opera)(\s+Browser)?(\s+Window)?\s*[-–—|]\s*/i,
+          // Pattern: "title brave work browser" - browser name anywhere with optional profile
+          /\s+(brave|chrome|safari|firefox|edge|arc|opera)(\s+\w+)?\s*(browser|window)?\s*$/i,
+          // Google Chrome / Microsoft Edge
+          /\s*[-–—|]\s*Google Chrome(\s*[-–—|]\s*\w+)?$/i,
+          /\s*[-–—|]\s*Microsoft Edge(\s*[-–—|]\s*\w+)?$/i,
+      ];
+      
+      let sanitized = title;
+      for (const pattern of browserPatterns) {
+          sanitized = sanitized.replace(pattern, '').trim();
+      }
+      
+      // If after sanitization the title is empty, just "Claude", or just whitespace
+      const sanitizedLower = sanitized.toLowerCase();
+      if (!sanitized || sanitized.length < 2 || sanitizedLower === 'claude' || sanitizedLower === 'new chat') {
+          return isBrowser ? 'Untitled Chat-browser' : 'Untitled Chat';
+      }
+      
+      // Add -browser suffix for browser-sourced chats
+      if (isBrowser) {
+          return `${sanitized}-browser`;
+      }
+      
+      return sanitized;
+  }
+
   private static async handleVisionCapture(appName: string, title?: string) {
       const isClaudeDesktop = appName.toLowerCase().includes("claude");
       const isBrowser = this.isBrowserApp(appName);
@@ -174,17 +260,30 @@ export class Watcher {
       const isChatGPTBrowser = isBrowser && !!browserUrl && this.isChatGPTDomain(browserUrl);
     const isGeminiBrowser = isBrowser && !!browserUrl && this.isGeminiDomain(browserUrl);
 
+      // Check if URL is actually a chat page (not /pricing, /settings, etc.)
       if (isBrowser && isClaudeBrowser) {
+          if (!this.isClaudeChatUrl(browserUrl)) {
+              console.log(`Watcher: Skipping non-chat Claude URL: ${browserUrl}`);
+              return;
+          }
           await this.handleClaudeWebCapture(appName, title, extractedText);
           return;
       }
 
       if (isBrowser && isChatGPTBrowser) {
+          if (!this.isChatGPTChatUrl(browserUrl)) {
+              console.log(`Watcher: Skipping non-chat ChatGPT URL: ${browserUrl}`);
+              return;
+          }
           await this.handleChatGPTCapture(appName, title, extractedText);
           return;
       }
 
       if (isBrowser && isGeminiBrowser) {
+          if (!this.isGeminiChatUrl(browserUrl)) {
+              console.log(`Watcher: Skipping non-chat Gemini URL: ${browserUrl}`);
+              return;
+          }
           await this.handleGeminiCapture(appName, title, extractedText);
           return;
       }
@@ -225,42 +324,44 @@ export class Watcher {
       }
   }
 
-  private static async handleClaudeWebCapture(appName: string, title: string | undefined, extractedText: string) {
+  private static async handleClaudeWebCapture(_appName: string, title: string | undefined, extractedText: string) {
       const parsedResult = parseClaudeWebOutput(extractedText);
       const parsedMessages = parsedResult.messages;
       const chatTitle = parsedResult.chatTitle;
 
       if (parsedMessages.length > 0) {
-          const effectiveTitle = chatTitle || title || "Untitled Chat";
+          const rawTitle = chatTitle || title;
+          const effectiveTitle = this.sanitizeBrowserTitle(rawTitle, true);
           console.log(`Watcher: Claude Web parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("Claude.ai", effectiveTitle, parsedMessages);
       }
   }
 
-  private static async handleChatGPTCapture(appName: string, title: string | undefined, extractedText: string) {
+  private static async handleChatGPTCapture(_appName: string, title: string | undefined, extractedText: string) {
       const parsedResult = parseChatGPTOutput(extractedText);
       const parsedMessages = parsedResult.messages;
       const chatTitle = parsedResult.chatTitle;
 
       if (parsedMessages.length > 0) {
-          const effectiveTitle = chatTitle || title || "Untitled Chat";
+          const rawTitle = chatTitle || title;
+          const effectiveTitle = this.sanitizeBrowserTitle(rawTitle, true);
           console.log(`Watcher: ChatGPT parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("ChatGPT", effectiveTitle, parsedMessages);
       }
   }
 
-  private static async handleGeminiCapture(appName: string, title: string | undefined, extractedText: string) {
+  private static async handleGeminiCapture(_appName: string, title: string | undefined, extractedText: string) {
       const parsedResult = parseGeminiOutput(extractedText);
       const parsedMessages = parsedResult.messages;
       const chatTitle = parsedResult.chatTitle;
 
       if (parsedMessages.length > 0) {
           const derivedTitle = this.deriveGeminiTitleFromMessages(parsedMessages);
-          const effectiveTitle = this.sanitizeGeminiTitle(chatTitle)
+          const rawTitle = this.sanitizeGeminiTitle(chatTitle)
               || this.sanitizeGeminiTitle(derivedTitle)
               || this.sanitizeGeminiTitle(parsedResult.windowTitle)
-              || this.sanitizeGeminiTitle(title)
-              || "Untitled Chat";
+              || this.sanitizeGeminiTitle(title);
+          const effectiveTitle = this.sanitizeBrowserTitle(rawTitle, true);
           console.log(`Watcher: Gemini parse success. Found ${parsedMessages.length} messages. Chat: ${effectiveTitle}`);
           await this.saveConversationToDB("Gemini", effectiveTitle, parsedMessages);
       }
