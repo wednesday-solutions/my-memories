@@ -41,6 +41,7 @@
     "motion": "^12.27.1",
     "node-llama-cpp": "^3.15.0",
     "ollama": "^0.6.3",
+    "posthog-js": "^1.331.0",
     "react-force-graph-3d": "^1.29.0",
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",

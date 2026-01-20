@@ -22,11 +22,14 @@ import {
   IconLayoutDashboard
 } from '@tabler/icons-react';
 import { cn } from './lib/utils';
+import { usePostHog } from 'posthog-js/react';
 
 const TABS = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'];
 type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
 
 function App() {
+
+  const posthog = usePostHog()
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState('All');
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -169,7 +172,11 @@ function App() {
                 {navItems.map((item) => (
                   <button
                     key={item.view}
-                    onClick={() => { setViewMode(item.view); setSelectedSessionId(null); setSelectedMemoryId(null); setSelectedEntityId(null); }}
+                    onClick={() => {
+                      console.log("button clicked")
+                      posthog.capture('button_clicked', { button_name: 'navigation_' + item.view })
+                      setViewMode(item.view); setSelectedSessionId(null); setSelectedMemoryId(null); setSelectedEntityId(null);
+                    }}
                     className={cn(
                       "flex items-center gap-2 py-2 px-2 rounded-lg transition-colors group/sidebar",
                       viewMode === item.view
@@ -224,64 +231,64 @@ function App() {
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
             <AnimatePresence mode="wait">
-            {viewMode === 'chats' && selectedSessionId ? (
-              <motion.div
-                key={`chat-detail-${selectedSessionId}`}
-                initial={{ opacity: 0, filter: 'blur(10px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, filter: 'blur(5px)' }}
-                transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="h-full"
-              >
-              <ChatDetail
-                sessionId={selectedSessionId}
-                onBack={handleBack}
-                onSelectEntity={(entityId) => {
-                  setSelectedEntityId(entityId);
-                  setViewMode('entities');
-                  setSelectedSessionId(null);
-                }}
-                onSelectMemory={(memoryId) => {
-                  setSelectedMemoryId(memoryId);
-                  setViewMode('memories');
-                  setSelectedSessionId(null);
-                }}
-              />
-              </motion.div>
-            ) : (
-              <motion.div 
-                key={viewMode}
-                initial={{ opacity: 0, filter: 'blur(10px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, filter: 'blur(5px)' }}
-                transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="p-6 h-full overflow-y-auto"
-              >
-                {viewMode === 'dashboard' ? (
-                  <Dashboard 
-                    appName={activeTab} 
-                    onSelectChat={handleSelectChat}
-                    onSelectMemory={handleSelectMemory}
-                    onSelectEntity={handleSelectEntity}
+              {viewMode === 'chats' && selectedSessionId ? (
+                <motion.div
+                  key={`chat-detail-${selectedSessionId}`}
+                  initial={{ opacity: 0, filter: 'blur(10px)' }}
+                  animate={{ opacity: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, filter: 'blur(5px)' }}
+                  transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  className="h-full"
+                >
+                  <ChatDetail
+                    sessionId={selectedSessionId}
+                    onBack={handleBack}
+                    onSelectEntity={(entityId) => {
+                      setSelectedEntityId(entityId);
+                      setViewMode('entities');
+                      setSelectedSessionId(null);
+                    }}
+                    onSelectMemory={(memoryId) => {
+                      setSelectedMemoryId(memoryId);
+                      setViewMode('memories');
+                      setSelectedSessionId(null);
+                    }}
                   />
-                ) : viewMode === 'memory-chat' ? (
-                  <MemoryChat 
-                    appName={activeTab} 
-                    onNavigateToMemory={handleSelectMemory}
-                    onNavigateToChat={handleSelectChat}
-                    onNavigateToEntity={handleSelectEntity}
-                  />
-                ) : viewMode === 'chats' ? (
-                  <ChatList appName={activeTab} onSelectSession={setSelectedSessionId} />
-                ) : viewMode === 'memories' ? (
-                  <MemoryList appName={activeTab} selectedMemoryId={selectedMemoryId} onClearSelection={() => setSelectedMemoryId(null)} />
-                ) : viewMode === 'entities' ? (
-                  <EntityList appName={activeTab} selectedEntityId={selectedEntityId} onClearSelection={() => setSelectedEntityId(null)} />
-                ) : (
-                  <EntityGraph appName={activeTab} />
-                )}
-              </motion.div>
-            )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={viewMode}
+                  initial={{ opacity: 0, filter: 'blur(10px)' }}
+                  animate={{ opacity: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, filter: 'blur(5px)' }}
+                  transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  className="p-6 h-full overflow-y-auto"
+                >
+                  {viewMode === 'dashboard' ? (
+                    <Dashboard
+                      appName={activeTab}
+                      onSelectChat={handleSelectChat}
+                      onSelectMemory={handleSelectMemory}
+                      onSelectEntity={handleSelectEntity}
+                    />
+                  ) : viewMode === 'memory-chat' ? (
+                    <MemoryChat
+                      appName={activeTab}
+                      onNavigateToMemory={handleSelectMemory}
+                      onNavigateToChat={handleSelectChat}
+                      onNavigateToEntity={handleSelectEntity}
+                    />
+                  ) : viewMode === 'chats' ? (
+                    <ChatList appName={activeTab} onSelectSession={setSelectedSessionId} />
+                  ) : viewMode === 'memories' ? (
+                    <MemoryList appName={activeTab} selectedMemoryId={selectedMemoryId} onClearSelection={() => setSelectedMemoryId(null)} />
+                  ) : viewMode === 'entities' ? (
+                    <EntityList appName={activeTab} selectedEntityId={selectedEntityId} onClearSelection={() => setSelectedEntityId(null)} />
+                  ) : (
+                    <EntityGraph appName={activeTab} />
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </div>
