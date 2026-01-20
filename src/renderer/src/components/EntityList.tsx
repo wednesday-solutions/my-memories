@@ -4,7 +4,7 @@ import { cn } from '@renderer/lib/utils';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
 import { BorderBeam } from './ui/border-beam';
 import { ProgressiveBlur } from './ui/progressive-blur';
-import { SourceFilterTabs, Source } from './SourceFilterTabs';
+import { SOURCES, Source } from './SourceFilterTabs';
 
 interface Entity {
     id: number;
@@ -123,35 +123,49 @@ function EntityCard({
     );
 }
 
-// Animated tab component
-function TypeTab({
-    type,
-    isActive,
-    onClick,
+// Filter dropdown component
+function FilterDropdown({
+    label,
+    value,
+    options,
+    onChange,
 }: {
-    type: string;
-    isActive: boolean;
-    onClick: () => void;
+    label: string;
+    value: string;
+    options: string[];
+    onChange: (value: string) => void;
 }) {
     return (
-        <button
-            onClick={onClick}
-            className={cn(
-                "relative px-4 py-2 rounded-full text-xs font-medium transition-all duration-300",
-                isActive
-                    ? "text-white"
-                    : "text-neutral-500 hover:text-neutral-300"
-            )}
-        >
-            {isActive && (
-                <motion.div
-                    layoutId="activeTypeTab"
-                    className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-full border border-purple-500/30"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                />
-            )}
-            <span className="relative z-10">{type}</span>
-        </button>
+        <div className="relative">
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className={cn(
+                    "appearance-none pl-3 pr-8 py-2.5 rounded-lg",
+                    "bg-neutral-800/80 border border-neutral-700",
+                    "text-sm text-neutral-200",
+                    "hover:border-neutral-600 focus:border-neutral-500",
+                    "focus:outline-none focus:ring-1 focus:ring-neutral-500/50",
+                    "cursor-pointer transition-all",
+                    "min-w-[100px]"
+                )}
+            >
+                {options.map(opt => (
+                    <option key={opt} value={opt} className="bg-neutral-900 text-neutral-200">
+                        {opt === 'All' ? `${label}: All` : opt}
+                    </option>
+                ))}
+            </select>
+            {/* Dropdown arrow */}
+            <svg
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
     );
 }
 
@@ -470,71 +484,68 @@ export function EntityList({ selectedEntityId: externalSelectedId, onClearSelect
         <div className="h-full flex gap-6">
             {/* Left panel - Entity list */}
             <div className="w-[38%] min-w-[280px] flex flex-col gap-4">
-                {/* Source filter tabs */}
-                <SourceFilterTabs
-                    activeSource={activeSource}
-                    onSourceChange={(source) => {
-                        setActiveSource(source);
-                        setSearchQuery('');
-                        setTypeFilter('All');
-                    }}
-                />
+                {/* Filter bar: Source dropdown + Type dropdown + Search input + Refresh */}
+                <div className="flex items-center gap-2">
+                    {/* Source filter dropdown */}
+                    <FilterDropdown
+                        label="Source"
+                        value={activeSource}
+                        options={SOURCES as unknown as string[]}
+                        onChange={(value) => {
+                            setActiveSource(value as Source);
+                            setSearchQuery('');
+                        }}
+                    />
 
-                {/* Type filter tabs */}
-                <div className="flex gap-1 flex-wrap pb-2">
-                    {typeTabs.map(type => (
-                        <TypeTab
-                            key={type}
-                            type={type}
-                            isActive={typeFilter === type}
-                            onClick={() => setTypeFilter(type)}
-                        />
-                    ))}
-                </div>
+                    {/* Type filter dropdown */}
+                    <FilterDropdown
+                        label="Type"
+                        value={typeFilter}
+                        options={typeTabs}
+                        onChange={setTypeFilter}
+                    />
 
-                {/* Search with glow effect */}
-                <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity blur" />
-                    <div className="relative">
-                        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {/* Search input - takes remaining space */}
+                    <div className="relative flex-1 min-w-0">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input
                             type="text"
-                            placeholder="Search entities..."
+                            placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className={cn(
-                                "w-full pl-11 pr-12 py-3 rounded-xl",
-                                "bg-neutral-900/80 border border-neutral-800",
-                                "text-white text-sm placeholder-neutral-600",
-                                "focus:outline-none focus:border-neutral-600",
+                                "w-full pl-9 pr-3 py-2.5 rounded-lg",
+                                "bg-neutral-800/80 border border-neutral-700",
+                                "text-white text-sm placeholder-neutral-500",
+                                "focus:outline-none focus:border-neutral-500",
                                 "transition-colors"
                             )}
                         />
-                        <button
-                            onClick={handleRefresh}
-                            disabled={isRefreshing || loading}
-                            className={cn(
-                                "absolute right-2 top-1/2 -translate-y-1/2",
-                                "h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900/80",
-                                "text-neutral-400 hover:text-white hover:border-neutral-600",
-                                "flex items-center justify-center transition-all",
-                                (isRefreshing || loading) && "opacity-50 cursor-not-allowed",
-                                "z-20"
-                            )}
-                            title="Refresh"
-                        >
-                            <svg
-                                className={cn("w-4 h-4", (isRefreshing || loading) && "animate-spin")}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </button>
                     </div>
+
+                    {/* Refresh button */}
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isRefreshing || loading}
+                        className={cn(
+                            "h-10 w-10 rounded-lg border border-neutral-700 bg-neutral-800/80",
+                            "text-neutral-400 hover:text-white hover:border-neutral-600",
+                            "flex items-center justify-center transition-all shrink-0",
+                            (isRefreshing || loading) && "opacity-50 cursor-not-allowed"
+                        )}
+                        title="Refresh"
+                    >
+                        <svg
+                            className={cn("w-4 h-4", (isRefreshing || loading) && "animate-spin")}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
                 </div>
 
                 {/* Loading state */}
