@@ -48,6 +48,28 @@ try {
       const subscription = () => callback()
       ipcRenderer.on('watcher:permission-denied', subscription)
       return () => ipcRenderer.removeListener('watcher:permission-denied', subscription)
+    },
+    
+    // Notification Events
+    onNewMessages: (callback: (data: { sessionId: string; appName: string; chatTitle: string; count: number }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('notification:new-messages', subscription)
+      return () => ipcRenderer.removeListener('notification:new-messages', subscription)
+    },
+    onNewMemory: (callback: (data: { sessionId: string; memoryContent: string }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('notification:new-memory', subscription)
+      return () => ipcRenderer.removeListener('notification:new-memory', subscription)
+    },
+    onNewEntity: (callback: (data: { entityId: number; entityName: string; entityType: string }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('notification:new-entity', subscription)
+      return () => ipcRenderer.removeListener('notification:new-entity', subscription)
+    },
+    onSummaryGenerated: (callback: (data: { sessionId: string; chatTitle: string }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('notification:summary-generated', subscription)
+      return () => ipcRenderer.removeListener('notification:summary-generated', subscription)
     }
   });
   console.log("API Exposed successfully");

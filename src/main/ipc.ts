@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats, getUserProfile, saveUserProfile, UserProfile } from './database';
 import { embeddings } from './embeddings';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
@@ -120,7 +120,19 @@ async function insertMemoryRecord(params: {
         vectorJson,
         params.messageId || null
     );
-    return Number(info.lastInsertRowid || 0) || null;
+    const memoryId = Number(info.lastInsertRowid || 0) || null;
+    
+    // Send notification about new memory
+    if (memoryId) {
+        BrowserWindow.getAllWindows().forEach(win => {
+            win.webContents.send('notification:new-memory', {
+                sessionId: params.sessionId || null,
+                memoryContent: content.slice(0, 100) + (content.length > 100 ? '...' : '')
+            });
+        });
+    }
+    
+    return memoryId;
 }
 
 export async function evaluateAndStoreMemoryForMessage(params: {
@@ -243,6 +255,18 @@ JSON:`;
             for (const fact of facts) {
                 const inserted = addEntityFact(entityId, fact, sessionId);
                 if (inserted) newFacts.push(fact);
+            }
+
+            // Send notification about new entity with facts
+            if (newFacts.length > 0) {
+                BrowserWindow.getAllWindows().forEach(win => {
+                    win.webContents.send('notification:new-entity', {
+                        entityId,
+                        entityName: name,
+                        entityType: type,
+                        factsCount: newFacts.length
+                    });
+                });
             }
 
             if (newFacts.length === 0) continue;

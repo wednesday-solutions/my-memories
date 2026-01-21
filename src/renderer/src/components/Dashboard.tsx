@@ -412,15 +412,30 @@ function EntityTypeBreakdown({
     total: number;
     delay?: number;
 }) {
-    const typeColors: Record<string, string> = {
-        'Person': 'bg-blue-500/70',
-        'Organization': 'bg-purple-500/70',
-        'Technology': 'bg-emerald-500/70',
-        'Product': 'bg-amber-500/70',
-        'Concept': 'bg-cyan-500/70',
-        'Location': 'bg-rose-500/70',
-        'Event': 'bg-indigo-500/70',
+    const [isHovered, setIsHovered] = useState(false);
+
+    // Monochromatic shades (default state) - different shades for visual distinction
+    const monochromeColors: Record<string, string> = {
+        'Person': 'bg-neutral-400',
+        'Organization': 'bg-neutral-500',
+        'Technology': 'bg-neutral-450',
+        'Product': 'bg-neutral-350',
+        'Concept': 'bg-neutral-550',
+        'Location': 'bg-neutral-400',
+        'Event': 'bg-neutral-500',
         'Unknown': 'bg-neutral-600',
+    };
+
+    // Actual colors (hover state) - matching EntityGraph colors exactly
+    const typeColors: Record<string, string> = {
+        'Person': 'bg-[#c9a0b8]',      // Muted pink
+        'Organization': 'bg-[#8aa8c9]', // Muted blue
+        'Technology': 'bg-[#7ab8a0]',   // Muted green
+        'Product': 'bg-[#7ab8b8]',      // Muted cyan
+        'Concept': 'bg-[#a89cc9]',      // Muted purple
+        'Location': 'bg-[#c9b87a]',     // Muted yellow
+        'Event': 'bg-[#c9957a]',        // Muted orange
+        'Unknown': 'bg-[#7a7a7a]',      // Muted gray
     };
 
     return (
@@ -429,6 +444,8 @@ function EntityTypeBreakdown({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay }}
             className="space-y-4"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             <div className="flex items-baseline justify-between">
                 <TextGenerate
@@ -450,8 +467,10 @@ function EntityTypeBreakdown({
                             animate={{ width: `${percentage}%` }}
                             transition={{ duration: 0.8, delay: delay + 0.3 + idx * 0.05 }}
                             className={cn(
-                                "h-full",
-                                typeColors[type.type] || 'bg-neutral-600'
+                                "h-full transition-colors duration-300",
+                                isHovered
+                                    ? (typeColors[type.type] || 'bg-neutral-600')
+                                    : (monochromeColors[type.type] || 'bg-neutral-700')
                             )}
                             title={`${type.type}: ${type.count}`}
                         />
@@ -471,8 +490,10 @@ function EntityTypeBreakdown({
                     >
                         <div className="flex items-center gap-2">
                             <div className={cn(
-                                "w-2 h-2 rounded-full",
-                                typeColors[type.type] || 'bg-neutral-600'
+                                "w-2 h-2 rounded-full transition-colors duration-300",
+                                isHovered
+                                    ? (typeColors[type.type] || 'bg-neutral-600')
+                                    : (monochromeColors[type.type] || 'bg-neutral-700')
                             )} />
                             <span className="text-[11px] text-neutral-400 truncate">{type.type}</span>
                         </div>

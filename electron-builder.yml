@@ -37,6 +37,7 @@ mac:
   notarize: false
   forceCodeSigning: false
   type: development
+  icon: resources/icon.png
 afterSign: scripts/resign.js
 dmg:
   artifactName: ${name}-${version}.${ext}

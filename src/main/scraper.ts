@@ -16,17 +16,19 @@ export class ScraperService {
       if (app.isPackaged) {
           binPath = path.join(process.resourcesPath, "bin", binaName);
       } else {
-          binPath = path.join(app.getAppPath(), "resources", "bin", binaName);
+          // In dev, resources are in the project root
+          binPath = path.join(process.cwd(), "resources", "bin", binaName);
       }
 
       let cmd = "";
       let args: string[] = [];
 
-      if (app.isPackaged && fs.existsSync(binPath)) {
+      // If binary exists, use it (even in dev)
+      if (fs.existsSync(binPath)) {
           cmd = binPath;
           args = [appName];
       } else {
-          // In dev, prefer the Swift script to pick up latest changes
+          // Fallback: use Swift script wrapper
           cmd = "bash";
           const wrapperPath = app.isPackaged
             ? path.join(process.resourcesPath, "scripts", "text-extractor.sh")
@@ -52,6 +54,14 @@ export class ScraperService {
       child.on("close", (code) => {
         if (code !== 0) {
           console.warn(`[Scraper] Exited with code ${code}: ${error}`);
+          // Check for permission error
+          if (error.includes("Accessibility") || output.includes("Accessibility")) {
+              import("electron").then(({ BrowserWindow }) => {
+                  BrowserWindow.getAllWindows().forEach(win => {
+                      win.webContents.send('watcher:permission-denied');
+                  });
+              });
+          }
           resolve(""); 
         } else {
           resolve(output.trim());

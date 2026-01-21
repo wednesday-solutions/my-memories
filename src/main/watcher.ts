@@ -514,6 +514,16 @@ export class Watcher {
         if (inserted > 0) {
             console.log(`Watcher: Inserted ${inserted} new messages for ${sessionId}`);
 
+            // Send notification to renderer about new messages
+            BrowserWindow.getAllWindows().forEach(win => {
+                win.webContents.send('notification:new-messages', {
+                    sessionId,
+                    appName,
+                    chatTitle: displayTitle,
+                    count: inserted
+                });
+            });
+
             // Evaluate messages for memory storage
             if (insertedMessages.length > 0) {
                 try {
@@ -543,7 +553,15 @@ export class Watcher {
                 // ipc.ts imports database. watcher imports database.
                 // Let's use dynamic import for safety within the method.
                 const { summarizeSession } = await import('./ipc');
-                summarizeSession(sessionId).catch(err => console.error("Watcher: Auto-summary failed", err));
+                summarizeSession(sessionId).then(() => {
+                    // Send notification when summary is generated
+                    BrowserWindow.getAllWindows().forEach(win => {
+                        win.webContents.send('notification:summary-generated', {
+                            sessionId,
+                            chatTitle: displayTitle
+                        });
+                    });
+                }).catch(err => console.error("Watcher: Auto-summary failed", err));
             } catch (e) {
                 console.error("Watcher: Failed to import/run summarization", e);
             }

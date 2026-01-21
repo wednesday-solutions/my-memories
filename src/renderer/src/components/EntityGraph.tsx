@@ -35,16 +35,17 @@ interface EntityGraphProps {
     // No props needed - source filter is managed internally
 }
 
-// Color palette for different entity types
+// Color palette for different entity types - muted, desaturated tones
+// These are the only place where color appears per the design system
 const typeColors: Record<string, string> = {
-    'Person': '#f472b6',      // Pink
-    'Organization': '#60a5fa', // Blue
-    'Technology': '#34d399',   // Green
-    'Concept': '#a78bfa',      // Purple
-    'Location': '#fbbf24',     // Yellow
-    'Event': '#f97316',        // Orange
-    'Product': '#22d3d8',      // Cyan
-    'Unknown': '#9ca3af',      // Gray
+    'Person': '#c9a0b8',      // Muted pink
+    'Organization': '#8aa8c9', // Muted blue
+    'Technology': '#7ab8a0',   // Muted green
+    'Concept': '#a89cc9',      // Muted purple
+    'Location': '#c9b87a',     // Muted yellow
+    'Event': '#c9957a',        // Muted orange
+    'Product': '#7ab8b8',      // Muted cyan
+    'Unknown': '#7a7a7a',      // Muted gray
 };
 
 const normalizeType = (type?: string): string => {
@@ -389,14 +390,14 @@ export function EntityGraph({ }: EntityGraphProps) {
                             onNodeClick={handleNodeClick}
                             onNodeRightClick={handleNodeDoubleClick}
                             onNodeHover={handleNodeHover}
-                            linkColor={() => 'rgba(139, 92, 246, 0.4)'}
+                            linkColor={() => 'rgba(115, 115, 115, 0.5)'}
                             linkWidth={(link: { weight: number }) => Math.max(1, Math.min(4, link.weight * 0.5))}
                             linkOpacity={0.5}
                             linkCurvature={0.15}
                             linkDirectionalParticles={2}
                             linkDirectionalParticleWidth={1.5}
                             linkDirectionalParticleSpeed={0.004}
-                            linkDirectionalParticleColor={() => '#c4b5fd'}
+                            linkDirectionalParticleColor={() => '#a3a3a3'}
                             backgroundColor="#0a0a0a"
                             showNavInfo={false}
                             enableNodeDrag={true}
@@ -472,11 +473,11 @@ export function EntityGraph({ }: EntityGraphProps) {
 
                                 <div className="flex gap-4 text-xs" >
                                     <div className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
                                         <span className="text-neutral-400">{selectedNode.fact_count} facts</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-500" />
                                         <span className="text-neutral-400">{selectedNode.session_count} sessions</span>
                                     </div>
                                 </div>
@@ -507,7 +508,7 @@ export function EntityGraph({ }: EntityGraphProps) {
                                                     transition={{ delay: idx * 0.05 }}
                                                     className="flex items-start gap-2 text-xs text-neutral-400"
                                                 >
-                                                    <span className="text-purple-400 mt-0.5 min-w-[3px]">•</span>
+                                                    <span className="text-neutral-500 mt-0.5 min-w-[3px]">•</span>
                                                     <span className="leading-relaxed">{fact}</span>
                                                 </motion.li>
                                             ))}
@@ -525,12 +526,11 @@ export function EntityGraph({ }: EntityGraphProps) {
                             >
                                 <div className={cn(
                                     "w-14 h-14 rounded-2xl mx-auto mb-4",
-                                    "bg-gradient-to-br from-purple-500/10 via-cyan-500/10 to-purple-500/10",
-                                    "border border-purple-500/20",
-                                    "flex items-center justify-center",
-                                    "shadow-lg shadow-purple-500/5"
+                                    "bg-neutral-800/60",
+                                    "border border-neutral-700",
+                                    "flex items-center justify-center"
                                 )}>
-                                    <svg className="w-7 h-7 text-purple-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-7 h-7 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                     </svg>
                                 </div>

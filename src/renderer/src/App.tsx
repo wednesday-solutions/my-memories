@@ -7,6 +7,8 @@ import { EntityGraph } from './components/EntityGraph';
 import { MemoryChat } from './components/MemoryChat';
 import { Dashboard } from './components/Dashboard';
 import { Onboarding } from './components/Onboarding';
+import { NotificationList } from './components/NotificationList';
+import { NotificationProvider, useNotifications } from './hooks/useNotifications';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { StarsBackground } from './components/ui/stars-background';
 import { ShootingStars } from './components/ui/shooting-stars';
@@ -19,12 +21,13 @@ import {
   IconUsers,
   IconGraph,
   IconSparkles,
-  IconLayoutDashboard
+  IconLayoutDashboard,
+  IconBell
 } from '@tabler/icons-react';
 import { cn } from './lib/utils';
 import { usePostHog } from 'posthog-js/react';
 
-type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat';
+type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat' | 'notifications';
 
 // Navigation state type for history tracking
 interface NavigationState {
@@ -34,9 +37,10 @@ interface NavigationState {
   selectedEntityId: number | null;
 }
 
-function App() {
+function AppContent() {
 
   const posthog = usePostHog()
+  const { addNotification, unreadCount } = useNotifications();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
@@ -66,7 +70,8 @@ function App() {
       '/chats': 'chats',
       '/memories': 'memories',
       '/entities': 'entities',
-      '/graph': 'graph'
+      '/graph': 'graph',
+      '/notifications': 'notifications'
     };
 
     if (viewMap[path]) {
@@ -82,7 +87,8 @@ function App() {
       'chats': '/chats',
       'memories': '/memories',
       'entities': '/entities',
-      'graph': '/graph'
+      'graph': '/graph',
+      'notifications': '/notifications'
     };
 
     const newPath = urlMap[viewMode];
@@ -123,6 +129,67 @@ function App() {
       }
     }
   }, [viewMode, selectedSessionId, selectedMemoryId, selectedEntityId]);
+
+  // Subscribe to notification events from the main process
+  useEffect(() => {
+    const unsubscribers: (() => void)[] = [];
+
+    // New messages notification
+    if (window.api?.onNewMessages) {
+      const unsubscribe = window.api.onNewMessages((data) => {
+        addNotification({
+          type: 'chat',
+          title: `New messages in ${data.appName}`,
+          message: `${data.count} new message${data.count > 1 ? 's' : ''} in "${data.chatTitle}"`,
+          sessionId: data.sessionId,
+        });
+      });
+      unsubscribers.push(unsubscribe);
+    }
+
+    // New memory notification
+    if (window.api?.onNewMemory) {
+      const unsubscribe = window.api.onNewMemory((data) => {
+        addNotification({
+          type: 'memory',
+          title: 'New memory stored',
+          message: data.memoryContent,
+          sessionId: data.sessionId || undefined,
+        });
+      });
+      unsubscribers.push(unsubscribe);
+    }
+
+    // New entity notification
+    if (window.api?.onNewEntity) {
+      const unsubscribe = window.api.onNewEntity((data) => {
+        addNotification({
+          type: 'entity',
+          title: `New entity: ${data.entityName}`,
+          message: `${data.entityType} with ${data.factsCount} fact${data.factsCount > 1 ? 's' : ''} discovered`,
+          entityId: data.entityId,
+        });
+      });
+      unsubscribers.push(unsubscribe);
+    }
+
+    // Summary generated notification
+    if (window.api?.onSummaryGenerated) {
+      const unsubscribe = window.api.onSummaryGenerated((data) => {
+        addNotification({
+          type: 'summary',
+          title: 'Chat summary generated',
+          message: `Summary created for "${data.chatTitle}"`,
+          sessionId: data.sessionId,
+        });
+      });
+      unsubscribers.push(unsubscribe);
+    }
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [addNotification]);
 
   const handleOnboardingComplete = () => {
     setHasCompletedOnboarding(true);
@@ -218,6 +285,20 @@ function App() {
     { label: 'Entities', icon: <IconUsers className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'entities' as ViewMode },
     { label: 'Graph', icon: <IconGraph className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'graph' as ViewMode },
     { label: 'Chat', icon: <IconMessageCircle className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'memory-chat' as ViewMode },
+    { 
+      label: 'Notifications', 
+      icon: (
+        <div className="relative">
+          <IconBell className="h-5 w-5 shrink-0 text-neutral-400" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-red-500 text-[9px] font-medium text-white px-1">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </div>
+      ), 
+      view: 'notifications' as ViewMode 
+    },
   ];
 
   return (
@@ -282,7 +363,6 @@ function App() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
             <AnimatePresence mode="wait">
@@ -337,6 +417,12 @@ function App() {
                     <MemoryList selectedMemoryId={selectedMemoryId} onClearSelection={() => setSelectedMemoryId(null)} />
                   ) : viewMode === 'entities' ? (
                     <EntityList selectedEntityId={selectedEntityId} onClearSelection={() => setSelectedEntityId(null)} />
+                  ) : viewMode === 'notifications' ? (
+                    <NotificationList
+                      onSelectChat={handleSelectChat}
+                      onSelectMemory={handleSelectMemory}
+                      onSelectEntity={handleSelectEntity}
+                    />
                   ) : (
                     <EntityGraph />
                   )}
@@ -347,6 +433,14 @@ function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   );
 }
 
