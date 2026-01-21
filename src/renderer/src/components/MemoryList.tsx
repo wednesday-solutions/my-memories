@@ -99,74 +99,59 @@ function MemoryListItem({ memory, index, formattedTime, onDelete, isHighlighted 
                         opacity: glareStyle.opacity * 1.5,
                     }}
                 />
-                <Item variant="outline" className={cn(
-                    "group hover:border-neutral-700 relative",
-                    isHighlighted && "border-neutral-600 bg-neutral-800/50 ring-1 ring-neutral-600"
-                )}>
-                    <ItemContent>
-                        <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
-                                {memory.source_app}
-                            </span>
-                            <ItemTitle>Memory #{memory.id}</ItemTitle>
-                        </div>
-                        <ItemDescription className="text-neutral-400 line-clamp-2">
-                            {preview}
-                        </ItemDescription>
-                    </ItemContent>
+                <Modal>
+                    <ModalTrigger className="w-full text-left py-0 px-0">
+                        <Item variant="outline" className={cn(
+                            "group hover:border-neutral-700 relative cursor-pointer",
+                            isHighlighted && "border-neutral-600 bg-neutral-800/50 ring-1 ring-neutral-600"
+                        )}>
+                            <ItemContent>
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                                        {memory.source_app}
+                                    </span>
+                                    <ItemTitle>Memory #{memory.id}</ItemTitle>
+                                </div>
+                                <ItemDescription className="text-neutral-400 line-clamp-2">
+                                    {preview}
+                                </ItemDescription>
+                            </ItemContent>
 
-                    <ItemActions className="gap-3">
-                        <div className="flex items-center gap-2 text-xs text-neutral-500">
-                            <span>{formattedTime}</span>
-                        </div>
+                            <ItemActions className="gap-3">
+                                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                                    <span>{formattedTime}</span>
+                                </div>
 
-                        <div className="flex items-center gap-2">
-                            <div onClick={(e) => e.stopPropagation()}>
-                                <Modal>
-                                    <ModalTrigger className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white hover:border-neutral-700 p-0 flex items-center justify-center">
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.6"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            className="h-4 w-4"
-                                        >
-                                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
-                                            <circle cx="12" cy="12" r="3" />
-                                        </svg>
-                                    </ModalTrigger>
-                                    <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
-                                        <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
-                                            <div className="text-base font-semibold text-white">Memory</div>
-                                            <div className="mt-1 text-xs text-neutral-500">
-                                                {memory.source_app} • {formattedTime}
-                                            </div>
-                                            <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">
-                                                {memory.content}
-                                            </div>
-                                            <div className="mt-5 text-xs text-neutral-500">#{memory.id}</div>
-                                            <BorderBeam
-                                                duration={6}
-                                                size={380}
-                                                className="from-transparent via-neutral-500 to-transparent"
-                                            />
-                                        </ModalContent>
-                                    </ModalBody>
-                                </Modal>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => onDelete(e, memory.id)}
+                                        className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
+                                        title="Delete"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </ItemActions>
+                        </Item>
+                    </ModalTrigger>
+                    <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
+                        <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
+                            <div className="text-base font-semibold text-white">Memory</div>
+                            <div className="mt-1 text-xs text-neutral-500">
+                                {memory.source_app} • {formattedTime}
                             </div>
-
-                            <button
-                                onClick={(e) => onDelete(e, memory.id)}
-                                className="h-8 w-8 rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-500 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40 transition-all flex items-center justify-center"
-                                title="Delete"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    </ItemActions>
-                </Item>
+                            <div className="mt-4 border-t border-neutral-800 pt-4 text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">
+                                {memory.content}
+                            </div>
+                            <div className="mt-5 text-xs text-neutral-500">#{memory.id}</div>
+                            <BorderBeam
+                                duration={6}
+                                size={380}
+                                className="from-transparent via-neutral-500 to-transparent"
+                            />
+                        </ModalContent>
+                    </ModalBody>
+                </Modal>
             </div>
         </motion.div>
     );
