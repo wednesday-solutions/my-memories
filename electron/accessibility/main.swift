@@ -83,7 +83,7 @@ func getFocusedElement() -> WindowContext? {
             windowTitle = title
         }
     }
-    print("DEBUG: Found context for \(appName)")
+    // print("DEBUG: Found context for \(appName)")
 
     return WindowContext(appName: appName, title: windowTitle, selectedText: selectedText, content: content, isTrusted: true)
 }

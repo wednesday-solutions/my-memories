@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.your-memories.ai
 productName: your-memories
 directories:
   buildResources: build
@@ -18,6 +18,8 @@ extraResources:
     to: scripts
     filter:
       - "*.swift"
+  - from: electron/accessibility/watcher
+    to: watcher
 win:
   executableName: your-memories
 nsis:
