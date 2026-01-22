@@ -24,7 +24,7 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'your-memories-notifications';
+const STORAGE_KEY = 'my-memories-notifications';
 const MAX_NOTIFICATIONS = 50;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {

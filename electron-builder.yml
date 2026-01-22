@@ -1,5 +1,5 @@
-appId: com.your-memories.ai
-productName: your-memories
+appId: com.my-memories.ai
+productName: My Memories
 directories:
   buildResources: build
 files:
@@ -21,7 +21,7 @@ extraResources:
   - from: electron/accessibility/watcher
     to: watcher
 win:
-  executableName: your-memories
+  executableName: my-memories
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -35,8 +35,6 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
-  forceCodeSigning: false
-  type: development
   icon: resources/icon.png
 afterSign: scripts/resign.js
 dmg:

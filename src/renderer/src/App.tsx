@@ -8,6 +8,7 @@ import { MemoryChat } from './components/MemoryChat';
 import { Dashboard } from './components/Dashboard';
 import { Onboarding } from './components/Onboarding';
 import { NotificationList } from './components/NotificationList';
+import { PermissionGate } from './components/PermissionGate';
 import { NotificationProvider, useNotifications } from './hooks/useNotifications';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { StarsBackground } from './components/ui/stars-background';
@@ -285,8 +286,8 @@ function AppContent() {
     { label: 'Entities', icon: <IconUsers className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'entities' as ViewMode },
     { label: 'Graph', icon: <IconGraph className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'graph' as ViewMode },
     { label: 'Chat', icon: <IconMessageCircle className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'memory-chat' as ViewMode },
-    { 
-      label: 'Notifications', 
+    {
+      label: 'Notifications',
       icon: (
         <div className="relative">
           <IconBell className="h-5 w-5 shrink-0 text-neutral-400" />
@@ -296,8 +297,8 @@ function AppContent() {
             </span>
           )}
         </div>
-      ), 
-      view: 'notifications' as ViewMode 
+      ),
+      view: 'notifications' as ViewMode
     },
   ];
 
@@ -324,7 +325,7 @@ function AppContent() {
                   }}
                   className="font-semibold text-white whitespace-pre"
                 >
-                  Your Memories
+                  My Memories
                 </motion.span>
               </div>
 
@@ -438,9 +439,11 @@ function AppContent() {
 
 function App() {
   return (
-    <NotificationProvider>
-      <AppContent />
-    </NotificationProvider>
+    <PermissionGate>
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
+    </PermissionGate>
   );
 }
 

@@ -21,7 +21,23 @@ export class Watcher {
       ? path.join(process.cwd(), 'electron/accessibility/watcher')
       : path.join(process.resourcesPath, 'watcher'); 
 
-    console.log("Spawning Watcher from:", binPath);
+    console.log("[Watcher] Spawning Watcher from:", binPath);
+
+    // Check availability
+    const fs = require('fs');
+    if (!fs.existsSync(binPath)) {
+        console.error(`[Watcher] CRITICAL: Binary not found at ${binPath}`);
+        // Log contents of resources path to help debug
+        if (!isDev) {
+            try {
+                const resources = fs.readdirSync(process.resourcesPath);
+                console.log("[Watcher] Contents of resourcesPath:", resources);
+            } catch(e) {
+                console.error("[Watcher] Could not list resourcesPath:", e);
+            }
+        }
+        return;
+    }
 
     this.child = spawn(binPath, []);
 

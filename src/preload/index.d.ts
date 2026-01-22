@@ -37,6 +37,12 @@ interface NotificationSummaryGenerated {
   chatTitle: string;
 }
 
+interface PermissionStatus {
+  accessibility: boolean;
+  screenRecording: boolean;
+  allGranted: boolean;
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -50,6 +56,13 @@ declare global {
       onNewMemory: (callback: (data: NotificationNewMemory) => void) => () => void
       onNewEntity: (callback: (data: NotificationNewEntity) => void) => () => void
       onSummaryGenerated: (callback: (data: NotificationSummaryGenerated) => void) => () => void
+      
+      // Permission APIs
+      getPermissionStatus: () => Promise<PermissionStatus>
+      requestAccessibilityPermission: () => Promise<boolean>
+      requestScreenRecordingPermission: () => Promise<boolean>
+      openAccessibilitySettings: () => Promise<boolean>
+      openScreenRecordingSettings: () => Promise<boolean>
     } & Record<string, any>
   }
 }

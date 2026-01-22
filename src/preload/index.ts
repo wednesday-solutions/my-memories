@@ -70,7 +70,14 @@ try {
       const subscription = (_: any, data: any) => callback(data)
       ipcRenderer.on('notification:summary-generated', subscription)
       return () => ipcRenderer.removeListener('notification:summary-generated', subscription)
-    }
+    },
+    
+    // Permission APIs
+    getPermissionStatus: () => ipcRenderer.invoke('permissions:get-status'),
+    requestAccessibilityPermission: () => ipcRenderer.invoke('permissions:request-accessibility'),
+    requestScreenRecordingPermission: () => ipcRenderer.invoke('permissions:request-screen-recording'),
+    openAccessibilitySettings: () => ipcRenderer.invoke('permissions:open-accessibility-settings'),
+    openScreenRecordingSettings: () => ipcRenderer.invoke('permissions:open-screen-recording-settings')
   });
   console.log("API Exposed successfully");
 } catch (e) {
