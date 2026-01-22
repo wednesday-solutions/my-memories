@@ -202,7 +202,7 @@ export function PermissionGate({ children }: PermissionGateProps) {
             </div>
             <div className="space-y-2 text-sm text-neutral-500">
               <p>1. Click <span className="text-neutral-400">Open Settings</span></p>
-              <p>2. Find <span className="text-neutral-400">my-memories</span> in the list</p>
+              <p>2. Find <span className="text-neutral-400">My Memories</span> in the list</p>
               <p>3. Toggle the switch to enable</p>
             </div>
           </motion.div>
