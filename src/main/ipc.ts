@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats, getUserProfile, saveUserProfile, UserProfile } from './database';
 import { embeddings } from './embeddings';
+import { getPermissionStatus, requestAccessibilityPermission, requestScreenRecordingPermission, openAccessibilitySettings, openScreenRecordingSettings } from './permissions';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
 // Regenerate master memory from all chat summaries
@@ -716,5 +717,28 @@ Answer:`;
       saveUserProfile(profile);
       console.log('[IPC] User profile saved:', profile);
       return true;
+  });
+
+  // Permission handlers
+  ipcMain.handle('permissions:get-status', () => {
+      return getPermissionStatus();
+  });
+
+  ipcMain.handle('permissions:request-accessibility', () => {
+      return requestAccessibilityPermission();
+  });
+
+  ipcMain.handle('permissions:open-accessibility-settings', () => {
+      openAccessibilitySettings();
+      return true;
+  });
+
+  ipcMain.handle('permissions:open-screen-recording-settings', () => {
+      openScreenRecordingSettings();
+      return true;
+  });
+
+  ipcMain.handle('permissions:request-screen-recording', async () => {
+      return await requestScreenRecordingPermission();
   });
 }

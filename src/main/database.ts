@@ -153,6 +153,35 @@ export function getDB() {
     );
   `);
 
+  // Create Chat Summaries Table if not exists (migrating to conversations table eventually)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_summaries (
+      session_id TEXT PRIMARY KEY,
+      summary TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Create Master Memory Table - cumulative summary of all summaries
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS master_memory (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      content TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // User Profile Table - stores onboarding questionnaire data as JSON
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      data TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Triggers to keep FTS in sync
   const triggers = [
     `CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
@@ -224,24 +253,7 @@ export function getDB() {
       // Ignore rebuild errors
     }
 
-  // Create Chat Summaries Table if not exists (migrating to conversations table eventually)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS chat_summaries (
-      session_id TEXT PRIMARY KEY,
-      summary TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
 
-  // Create Master Memory Table - cumulative summary of all summaries
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS master_memory (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      content TEXT,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
 
   // Migration: Add timestamp column to messages if it doesn't exist
   try {
@@ -259,15 +271,6 @@ export function getDB() {
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_memories_message_id ON memories(message_id)');
 
-  // User Profile Table - stores onboarding questionnaire data as JSON
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS user_profile (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      data TEXT NOT NULL DEFAULT '{}',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
 
   return db;
 }

@@ -13,6 +13,12 @@ interface UserProfile {
   completedAt?: string;
 }
 
+interface PermissionStatus {
+  accessibility: boolean;
+  screenRecording: boolean;
+  allGranted: boolean;
+}
+
 interface DashboardStats {
   totalChats: number;
   totalMemories: number;
@@ -95,6 +101,13 @@ interface IElectronAPI {
   
   onWatcherData: (callback: (data: any) => void) => () => void
   onPermissionDenied: (callback: () => void) => () => void
+  
+  // Permission APIs
+  getPermissionStatus: () => Promise<PermissionStatus>
+  requestAccessibilityPermission: () => Promise<boolean>
+  requestScreenRecordingPermission: () => Promise<boolean>
+  openAccessibilitySettings: () => Promise<boolean>
+  openScreenRecordingSettings: () => Promise<boolean>
 }
 
 interface Window {

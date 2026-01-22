@@ -1,35 +1,48 @@
-# Your Memories
+# My Memories
 
-Your Memories is a local-first desktop app that captures and organizes personal memories with a private, on-device AI pipeline. It uses Electron + React for the UI and a native/LLM stack for extraction, embeddings, and search.
+Capture your life without giving it away.
 
-## Features
+My Memories is a local‑first desktop app that turns the stuff you already have — chats, notes, screenshots, PDFs, and more — into a searchable, connected memory graph. Everything runs on your machine, powered by on‑device AI, so your private moments stay private.
 
-- Local-first storage with a desktop UI
-- AI-powered extraction, embeddings, and memory retrieval
-- Vision and text ingestion utilities
-- Entity graph and memory feeds in the UI
+## Why it exists
 
-## Tech Stack
+Our lives are scattered across apps and files. Searching is slow, context is lost, and “that one message” can take forever to find. My Memories solves that by extracting meaning, connecting entities, and surfacing the right memory when you need it — instantly, and offline.
+
+## What you get
+
+- **Local‑only intelligence**: AI extraction, embeddings, and retrieval all happen on-device.
+- **A living memory map**: See people, places, and topics connected through an interactive entity graph.
+- **Fast recall**: A memory feed and semantic search turn “I remember…” into actual results.
+- **Multimodal ingestion**: Text and vision pipelines for diverse sources.
+- **Beautiful desktop experience**: Smooth, native-feeling UI built with Electron + React.
+
+## How it feels
+
+- Ask a question and get a grounded answer with relevant memories.
+- Jump from a chat to related entities and other moments you forgot you saved.
+- Rebuild context in seconds — without uploading a single byte.
+
+## Tech stack
 
 - Electron + Vite
 - React + TypeScript
 - Node.js main process with native helpers
 - Local LLM binaries and GGUF models
 
-## Repository Structure
+## Repo map
 
-- src/main: Electron main process (database, embeddings, LLM, vision, watcher)
-- src/renderer: React UI and components
-- src/preload: Electron preload bridge
-- resources/bin: Local LLM binaries
+- src/main: ingestion, database, embeddings, LLM, vision, watcher
+- src/renderer: UI and components
+- src/preload: Electron bridge
+- resources/bin: local inference binaries
 - resources/models: GGUF models used by the app
 
-## Prerequisites
+## Quick start
+
+Prerequisites:
 
 - Node.js 18+ (recommended)
 - npm
-
-## Setup
 
 Install dependencies:
 
@@ -37,15 +50,11 @@ Install dependencies:
 npm install
 ```
 
-## Development
-
-Start the app in development mode:
+Run in development:
 
 ```bash
 npm run dev
 ```
-
-## Build
 
 Build desktop packages:
 
@@ -60,17 +69,17 @@ npm run build:mac
 npm run build:linux
 ```
 
-## Models and Binaries
+## Models and binaries
 
-This repo includes local binaries in resources/bin and GGUF models in resources/models. If you change models or add new ones, ensure the main process configuration points to the correct paths.
+Local inference binaries live in resources/bin and GGUF models live in resources/models. If you swap models, update the main‑process configuration accordingly.
 
 ## Scripts
 
-Useful scripts live in scripts/ for model downloads and vision tests. See the folder for details and usage.
+Helper scripts for model downloads, vision tests, and utilities live in scripts/.
 
-## Security and Privacy
+## Security and privacy
 
-Your Memories is designed to run locally and keep data on-device. Review the code in src/main for storage and ingestion details before using with sensitive data.
+My Memories is built for on‑device use. Data stays on your computer. Review src/main for storage and ingestion details if you handle sensitive material.
 
 ## License
 
