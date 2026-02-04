@@ -102,7 +102,7 @@ export class LLMService {
     throw new Error("Server failed to start");
   }
 
-  async chat(message: string, images: string[] = []): Promise<string> {
+  async chat(message: string, images: string[] = [], timeoutMs: number = 300000): Promise<string> {
     if (!this.initialized) {
         await this.init();
         if (!this.initialized) {
@@ -126,7 +126,7 @@ export class LLMService {
                 const base64 = imageBuffer.toString("base64");
                 // Guess mime type roughly or default to png/jpeg
                 const mime = imgPath.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
-                
+
                 messages[0].content.push({
                     type: "image_url",
                     image_url: {
@@ -138,20 +138,24 @@ export class LLMService {
             }
         }
 
-        // If no images were added (or failed), we can simplify content to string if we wanted, 
-        // but keeping it as array is valid for multimodal models usually.
-        // However, if the images array was empty to begin with, standard text content string is safer for some endpoints,
-        // but OpenAI API supports content array for text-only too.
-        
+        // Create abort controller for timeout (default 5 minutes for LLM inference)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        console.log(`[LLMService] Starting LLM request (timeout: ${timeoutMs/1000}s)...`);
+
         const response = await fetch(`http://127.0.0.1:${this.port}/v1/chat/completions`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 messages: messages,
-                max_tokens: 1280000,
-                temperature: 0.7 // Optional
-            })
+                max_tokens: 8192, // Allow up to ~5000 words for detailed master memory
+                temperature: 0.7
+            }),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const errText = await response.text();
@@ -159,9 +163,14 @@ export class LLMService {
         }
 
         const data: any = await response.json();
+        console.log('[LLMService] LLM request completed');
         return data.choices?.[0]?.message?.content ?? "";
 
-    } catch (e) {
+    } catch (e: any) {
+        if (e.name === 'AbortError') {
+            console.error("[LLMService] Request timed out");
+            throw new Error("LLM request timed out - try a shorter prompt");
+        }
         console.error("[LLMService] Chat error:", e);
         throw e;
     }
