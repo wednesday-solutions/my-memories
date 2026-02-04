@@ -8,7 +8,8 @@ import { getPermissionStatus, requestAccessibilityPermission, requestScreenRecor
 // This approach keeps context bounded by only processing current master + new summary
 async function updateMasterMemoryIncremental(newSummary: string): Promise<string | null> {
     console.log('[IPC] Starting incremental master memory update...');
-    const currentMaster = getMasterMemory();
+    const currentMasterData = getMasterMemory();
+    const currentMaster = currentMasterData?.content;
 
     // If no existing master memory, create initial one from just this summary
     if (!currentMaster || currentMaster.trim().length === 0) {

@@ -351,7 +351,7 @@ export function MemoryChat({ onNavigateToMemory, onNavigateToChat, onNavigateToE
                 )}
                 <ProgressiveBlur
                   className="pointer-events-none sticky bottom-0 left-0 right-0 h-12"
-                  blurIntensity={0.5}
+                  height="48px"
                 />
               </div>
             </motion.div>

@@ -317,13 +317,12 @@ export function EntityGraph({ }: EntityGraphProps) {
 
     // Close search dropdown on outside click
     useEffect(() => {
+        if (!showSearchResults) return;
         const handleClickOutside = () => {
             setShowSearchResults(false);
         };
-        if (showSearchResults) {
-            document.addEventListener('click', handleClickOutside);
-            return () => document.removeEventListener('click', handleClickOutside);
-        }
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
     }, [showSearchResults]);
 
     // Custom node object with sphere + label sprite
