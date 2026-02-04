@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 import { BorderBeam } from './ui/border-beam';
 import { SourceFilterTabs, Source } from './SourceFilterTabs';
+import { IconSearch, IconX } from '@tabler/icons-react';
 
 interface GraphNode {
     id: number;
@@ -131,6 +132,9 @@ export function EntityGraph({ }: EntityGraphProps) {
     const [hoveredNodeId, setHoveredNodeId] = useState<number | null>(null);
     const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
     const [activeSource, setActiveSource] = useState<Source>('All');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<GraphNode[]>([]);
+    const [showSearchResults, setShowSearchResults] = useState(false);
 
     const nodesById = useMemo(() => {
         const map = new Map<number, GraphNode>();
@@ -242,6 +246,86 @@ export function EntityGraph({ }: EntityGraphProps) {
         }
     }, []);
 
+    // Search functionality
+    const handleSearch = useCallback((query: string) => {
+        setSearchQuery(query);
+        if (query.trim().length < 2) {
+            setSearchResults([]);
+            setShowSearchResults(false);
+            return;
+        }
+        const q = query.toLowerCase();
+        const matches = graph.nodes.filter(n =>
+            n.name.toLowerCase().includes(q) ||
+            (n.type && n.type.toLowerCase().includes(q))
+        ).slice(0, 8);
+        setSearchResults(matches);
+        setShowSearchResults(matches.length > 0);
+    }, [graph.nodes]);
+
+    // Zoom to a specific node
+    const zoomToNode = useCallback((node: GraphNode) => {
+        setSearchQuery('');
+        setShowSearchResults(false);
+        setSelectedNodeId(node.id);
+
+        const fg = graphRef.current;
+        if (!fg) {
+            console.log('[EntityGraph] No graph ref');
+            return;
+        }
+
+        // Get the node object with x, y, z coordinates from the simulation
+        const graphNode = fg.graphData().nodes.find((n: any) => n.id === node.id);
+        if (!graphNode) {
+            console.log('[EntityGraph] Node not found in graph data:', node.id);
+            return;
+        }
+
+        // Check if node has coordinates (simulation might still be running)
+        const x = graphNode.x ?? 0;
+        const y = graphNode.y ?? 0;
+        const z = graphNode.z ?? 0;
+
+        console.log(`[EntityGraph] Zooming to node ${node.name} at (${x}, ${y}, ${z})`);
+
+        // Calculate distance from origin, with minimum to avoid division issues
+        const distFromOrigin = Math.max(Math.hypot(x, y, z), 1);
+
+        // Position camera at a fixed distance from the node, looking at the node
+        const cameraDistance = 300;
+        const ratio = cameraDistance / distFromOrigin;
+
+        // Camera position: offset from node position
+        const camPos = {
+            x: x + (x === 0 ? cameraDistance : x * ratio * 0.3),
+            y: y + (y === 0 ? cameraDistance * 0.5 : y * ratio * 0.3),
+            z: z + cameraDistance
+        };
+
+        // Look at the node
+        const lookAt = { x, y, z };
+
+        fg.cameraPosition(camPos, lookAt, 1000);
+    }, []);
+
+    const clearSearch = useCallback(() => {
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowSearchResults(false);
+    }, []);
+
+    // Close search dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = () => {
+            setShowSearchResults(false);
+        };
+        if (showSearchResults) {
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [showSearchResults]);
+
     // Custom node object with sphere + label sprite
     const nodeThreeObject = useCallback((node: GraphNode & { x?: number; y?: number; z?: number }) => {
         const isSelected = node.id === selectedNodeId;
@@ -347,6 +431,62 @@ export function EntityGraph({ }: EntityGraphProps) {
                 {/* Header */}
                 <div className="flex items-center gap-3 flex-shrink-0">
                     <h2 className="text-lg font-semibold text-white">Entity Graph</h2>
+
+                    {/* Search */}
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative">
+                            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
+                                placeholder="Search entities..."
+                                className="pl-9 pr-8 py-1.5 w-48 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600 transition-colors"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={clearSearch}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
+                                >
+                                    <IconX className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Search Results Dropdown */}
+                        <AnimatePresence>
+                            {showSearchResults && searchResults.length > 0 && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -4 }}
+                                    className="absolute top-full left-0 mt-1 w-64 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl z-20 overflow-hidden"
+                                >
+                                    {searchResults.map((node, idx) => (
+                                        <button
+                                            key={node.id}
+                                            onClick={() => zoomToNode(node)}
+                                            className={cn(
+                                                "w-full px-3 py-2 text-left hover:bg-neutral-800 transition-colors flex items-center gap-3",
+                                                idx !== searchResults.length - 1 && "border-b border-neutral-800"
+                                            )}
+                                        >
+                                            <span
+                                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                                style={{ backgroundColor: getTypeColor(node.type) }}
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm text-white truncate">{node.name}</p>
+                                                <p className="text-[10px] text-neutral-500">{node.type || 'Unknown'}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
                     {focusEntityId && (
                         <button
                             onClick={() => setFocusEntityId(undefined)}
@@ -430,7 +570,7 @@ export function EntityGraph({ }: EntityGraphProps) {
 
                 {/* Help Text */}
                 <div className="text-xs text-neutral-500 flex-shrink-0">
-                    Click a node to view details. Right‑click to filter neighborhood. Drag to orbit, scroll to zoom.
+                    Search to find and zoom to entities. Click a node to view details. Right-click to filter neighborhood. Drag to orbit, scroll to zoom.
                 </div>
             </div>
 
