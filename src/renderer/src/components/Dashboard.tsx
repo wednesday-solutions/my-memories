@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, stagger, useAnimate } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 import { BorderBeam } from './ui/border-beam';
@@ -642,21 +642,46 @@ export function Dashboard({ onSelectChat, onSelectMemory, onSelectEntity }: Dash
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            setLoading(true);
-            try {
-                const data = await window.api.getDashboardStats();
-                setStats(data);
-            } catch (e) {
-                console.error('Failed to fetch dashboard stats:', e);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
+    const fetchStats = useCallback(async (showLoader = false) => {
+        if (showLoader) setLoading(true);
+        try {
+            const data = await window.api.getDashboardStats();
+            setStats(data);
+        } catch (e) {
+            console.error('Failed to fetch dashboard stats:', e);
+        } finally {
+            if (showLoader) setLoading(false);
+        }
     }, []);
+
+    // Initial load
+    useEffect(() => {
+        fetchStats(true);
+    }, [fetchStats]);
+
+    // Subscribe to notification events to refresh stats in real-time
+    useEffect(() => {
+        const unsubscribers: (() => void)[] = [];
+
+        if (window.api?.onNewMemory) {
+            unsubscribers.push(window.api.onNewMemory(() => fetchStats()));
+        }
+        if (window.api?.onNewEntity) {
+            unsubscribers.push(window.api.onNewEntity(() => fetchStats()));
+        }
+        if (window.api?.onNewMessages) {
+            unsubscribers.push(window.api.onNewMessages(() => fetchStats()));
+        }
+        if (window.api?.onSummaryGenerated) {
+            unsubscribers.push(window.api.onSummaryGenerated(() => fetchStats()));
+        }
+        // Also refresh on reprocess progress updates
+        if (window.api?.onReprocessProgress) {
+            unsubscribers.push(window.api.onReprocessProgress(() => fetchStats()));
+        }
+
+        return () => unsubscribers.forEach(unsub => unsub());
+    }, [fetchStats]);
 
     if (loading) {
         return (

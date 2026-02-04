@@ -5,11 +5,13 @@ import { MemoryList } from './components/MemoryList';
 import { EntityList } from './components/EntityList';
 import { EntityGraph } from './components/EntityGraph';
 import { MemoryChat } from './components/MemoryChat';
+import { Settings } from './components/Settings';
 import { Dashboard } from './components/Dashboard';
 import { Onboarding } from './components/Onboarding';
 import { NotificationList } from './components/NotificationList';
 import { PermissionGate } from './components/PermissionGate';
 import { NotificationProvider, useNotifications } from './hooks/useNotifications';
+import { ReprocessingProvider, useReprocessing } from './hooks/useReprocessing';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { StarsBackground } from './components/ui/stars-background';
 import { ShootingStars } from './components/ui/shooting-stars';
@@ -23,12 +25,13 @@ import {
   IconGraph,
   IconSparkles,
   IconLayoutDashboard,
-  IconBell
+  IconBell,
+  IconSettings
 } from '@tabler/icons-react';
 import { cn } from './lib/utils';
 import { usePostHog } from 'posthog-js/react';
 
-type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat' | 'notifications';
+type ViewMode = 'dashboard' | 'chats' | 'memories' | 'entities' | 'graph' | 'memory-chat' | 'notifications' | 'settings';
 
 // Navigation state type for history tracking
 interface NavigationState {
@@ -36,6 +39,50 @@ interface NavigationState {
   selectedSessionId: string | null;
   selectedMemoryId: number | null;
   selectedEntityId: number | null;
+}
+
+function ReprocessingBanner() {
+  const { reprocessing, progress } = useReprocessing();
+  if (!reprocessing) return null;
+
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.processed / progress.total) * 100)
+    : 0;
+
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-neutral-900/90 backdrop-blur-sm border-b border-neutral-800 px-4 py-2 flex items-center gap-3"
+    >
+      <motion.div
+        className="w-3.5 h-3.5 border-2 border-neutral-400 border-t-transparent rounded-full shrink-0"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+      />
+      <span className="text-sm text-neutral-400 flex-1 min-w-0 truncate">
+        {progress?.phase === 'cleared'
+          ? 'Data cleared. Rebuilding memories and entities...'
+          : progress
+            ? `Reprocessing session ${progress.processed} of ${progress.total}...`
+            : 'Reprocessing sessions...'}
+      </span>
+      {progress && progress.total > 0 && (
+        <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden shrink-0">
+          <motion.div
+            className="h-full bg-neutral-500 rounded-full"
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+      )}
+      {progress && progress.total > 0 && (
+        <span className="text-xs text-neutral-600 shrink-0">{pct}%</span>
+      )}
+    </motion.div>
+  );
 }
 
 function AppContent() {
@@ -72,7 +119,8 @@ function AppContent() {
       '/memories': 'memories',
       '/entities': 'entities',
       '/graph': 'graph',
-      '/notifications': 'notifications'
+      '/notifications': 'notifications',
+      '/settings': 'settings'
     };
 
     if (viewMap[path]) {
@@ -89,7 +137,8 @@ function AppContent() {
       'memories': '/memories',
       'entities': '/entities',
       'graph': '/graph',
-      'notifications': '/notifications'
+      'notifications': '/notifications',
+      'settings': '/settings'
     };
 
     const newPath = urlMap[viewMode];
@@ -300,6 +349,7 @@ function AppContent() {
       ),
       view: 'notifications' as ViewMode
     },
+    { label: 'Settings', icon: <IconSettings className="h-5 w-5 shrink-0 text-neutral-400" />, view: 'settings' as ViewMode },
   ];
 
   return (
@@ -364,6 +414,10 @@ function AppContent() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
+          {/* Global reprocessing banner */}
+          <AnimatePresence>
+            <ReprocessingBanner />
+          </AnimatePresence>
           {/* Content Area */}
           <div className="flex-1 overflow-hidden">
             <AnimatePresence mode="wait">
@@ -424,6 +478,8 @@ function AppContent() {
                       onSelectMemory={handleSelectMemory}
                       onSelectEntity={handleSelectEntity}
                     />
+                  ) : viewMode === 'settings' ? (
+                    <Settings />
                   ) : (
                     <EntityGraph />
                   )}
@@ -441,7 +497,9 @@ function App() {
   return (
     <PermissionGate>
       <NotificationProvider>
-        <AppContent />
+        <ReprocessingProvider>
+          <AppContent />
+        </ReprocessingProvider>
       </NotificationProvider>
     </PermissionGate>
   );
