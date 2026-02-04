@@ -182,6 +182,38 @@ export function getDB() {
     );
   `);
 
+  // RAG Conversations Table - stores chat sessions with the memory assistant
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rag_conversations (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // RAG Messages Table - stores messages in RAG conversations
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rag_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      context TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(conversation_id) REFERENCES rag_conversations(id) ON DELETE CASCADE
+    );
+  `);
+
+  // App Settings Table - stores application settings as key-value pairs
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Triggers to keep FTS in sync
   const triggers = [
     `CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
@@ -969,3 +1001,148 @@ export function saveUserProfile(profile: UserProfile): void {
         ON CONFLICT(id) DO UPDATE SET data = ?, updated_at = ?
     `).run(json, now, json, now);
 }
+
+// === RAG CONVERSATIONS ===
+
+export interface RagConversation {
+    id: string;
+    title: string | null;
+    created_at: string;
+    updated_at: string;
+    message_count?: number;
+}
+
+export interface RagMessage {
+    id: number;
+    conversation_id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    context: string | null;
+    created_at: string;
+}
+
+export function createRagConversation(id: string, title?: string): string {
+    const db = getDB();
+    db.prepare(`
+        INSERT INTO rag_conversations (id, title, created_at, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).run(id, title || null);
+    return id;
+}
+
+export function getRagConversations(): RagConversation[] {
+    const db = getDB();
+    return db.prepare(`
+        SELECT 
+            rc.id,
+            rc.title,
+            rc.created_at,
+            rc.updated_at,
+            (SELECT COUNT(*) FROM rag_messages rm WHERE rm.conversation_id = rc.id) as message_count
+        FROM rag_conversations rc
+        ORDER BY rc.updated_at DESC
+    `).all() as RagConversation[];
+}
+
+export function getRagConversation(id: string): RagConversation | null {
+    const db = getDB();
+    return db.prepare(`
+        SELECT id, title, created_at, updated_at
+        FROM rag_conversations
+        WHERE id = ?
+    `).get(id) as RagConversation | null;
+}
+
+export function updateRagConversationTitle(id: string, title: string): void {
+    const db = getDB();
+    db.prepare(`
+        UPDATE rag_conversations 
+        SET title = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+    `).run(title, id);
+}
+
+export function deleteRagConversation(id: string): boolean {
+    const db = getDB();
+    const info = db.prepare('DELETE FROM rag_conversations WHERE id = ?').run(id);
+    return info.changes > 0;
+}
+
+export function addRagMessage(
+    conversationId: string,
+    role: 'user' | 'assistant',
+    content: string,
+    context?: any
+): number {
+    const db = getDB();
+    const contextJson = context ? JSON.stringify(context) : null;
+    
+    const info = db.prepare(`
+        INSERT INTO rag_messages (conversation_id, role, content, context, created_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(conversationId, role, content, contextJson);
+    
+    // Update conversation updated_at timestamp
+    db.prepare(`
+        UPDATE rag_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(conversationId);
+    
+    return Number(info.lastInsertRowid);
+}
+
+export function getRagMessages(conversationId: string): RagMessage[] {
+    const db = getDB();
+    return db.prepare(`
+        SELECT id, conversation_id, role, content, context, created_at
+        FROM rag_messages
+        WHERE conversation_id = ?
+        ORDER BY created_at ASC
+    `).all(conversationId) as RagMessage[];
+}
+
+// === APP SETTINGS ===
+
+export interface AppSettings {
+    memoryStrictness?: 'lenient' | 'balanced' | 'strict';
+    entityStrictness?: 'lenient' | 'balanced' | 'strict';
+    [key: string]: any;
+}
+
+export function getSettings(): AppSettings {
+    const db = getDB();
+    const rows = db.prepare('SELECT key, value FROM app_settings').all() as { key: string; value: string }[];
+    const settings: AppSettings = {};
+    for (const row of rows) {
+        try {
+            settings[row.key] = JSON.parse(row.value);
+        } catch {
+            settings[row.key] = row.value;
+        }
+    }
+    // Set defaults if not present
+    if (!settings.memoryStrictness) settings.memoryStrictness = 'balanced';
+    if (!settings.entityStrictness) settings.entityStrictness = 'balanced';
+    return settings;
+}
+
+export function saveSetting(key: string, value: any): void {
+    const db = getDB();
+    const valueJson = JSON.stringify(value);
+    db.prepare(`
+        INSERT INTO app_settings (key, value, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = CURRENT_TIMESTAMP
+    `).run(key, valueJson, valueJson);
+}
+
+export function getSetting<T>(key: string, defaultValue: T): T {
+    const db = getDB();
+    const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined;
+    if (!row) return defaultValue;
+    try {
+        return JSON.parse(row.value) as T;
+    } catch {
+        return defaultValue;
+    }
+}
+
