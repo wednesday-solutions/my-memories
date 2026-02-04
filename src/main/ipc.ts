@@ -1,45 +1,219 @@
 import { ipcMain, BrowserWindow } from 'electron';
-import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats, getUserProfile, saveUserProfile, UserProfile } from './database';
+import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats, getUserProfile, saveUserProfile, UserProfile, createRagConversation, getRagConversations, getRagConversation, deleteRagConversation, addRagMessage, getRagMessages, updateRagConversationTitle, getSettings, saveSetting, getSetting } from './database';
 import { embeddings } from './embeddings';
 import { getPermissionStatus, requestAccessibilityPermission, requestScreenRecordingPermission, openAccessibilitySettings, openScreenRecordingSettings } from './permissions';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
-// Regenerate master memory from all chat summaries
-async function regenerateMasterMemory(): Promise<string | null> {
+// Incrementally update master memory with a new conversation summary
+// This approach keeps context bounded by only processing current master + new summary
+async function updateMasterMemoryIncremental(newSummary: string): Promise<string | null> {
+    console.log('[IPC] Starting incremental master memory update...');
+    const currentMaster = getMasterMemory();
+
+    // If no existing master memory, create initial one from just this summary
+    if (!currentMaster || currentMaster.trim().length === 0) {
+        console.log('[IPC] No existing master memory, creating from new summary only');
+        const prompt = `You are creating a comprehensive MASTER MEMORY — a detailed knowledge base about a user.
+
+Create a thorough, well-organized reference document from this conversation summary. Be DETAILED and COMPREHENSIVE - this document can be up to 5000 words. Include every relevant piece of information.
+
+## Required Sections (include all that have content):
+
+### About the User
+- Full professional background, role, title, company
+- Technical skills and expertise levels
+- Years of experience in different areas
+- Education or certifications mentioned
+- Location, timezone, working hours
+
+### Projects & Work
+- All projects mentioned with full details (names, descriptions, tech stacks, status)
+- Project goals, timelines, constraints
+- Team structure and collaborators
+- Past projects and their outcomes
+
+### Technical Environment
+- Operating system, hardware, development machines
+- IDEs, editors, and tools used
+- Languages and frameworks with proficiency levels
+- Databases, cloud services, infrastructure
+- Development workflow and practices
+
+### Architectural Preferences
+- Design patterns preferred
+- Code organization and structure
+- API design preferences
+- Testing approaches
+- Performance considerations
+
+### Stated Preferences & Opinions
+- Explicitly stated likes and dislikes
+- Strong opinions on technologies, practices, or approaches
+- Communication style preferences
+- Work style (collaborative vs independent, etc.)
+
+### Key Decisions Made
+- Technical decisions with rationale
+- Tool or framework choices
+- Architectural decisions
+- Process decisions
+
+### Important Relationships
+- People mentioned (colleagues, clients, managers)
+- Organizations and companies referenced
+- Communities or groups involved with
+
+### Recurring Themes & Interests
+- Topics frequently discussed
+- Areas of active learning
+- Long-term goals and aspirations
+
+Guidelines:
+- Write in third person ("The user prefers...", "They work on...")
+- Include ALL specific details: names, versions, exact preferences
+- Preserve nuance and context
+- Be comprehensive, not brief
+
+Conversation Summary:
+${newSummary}
+
+Master Memory:`;
+
+        try {
+            const { llm } = await import('./llm');
+            const initialMaster = await llm.chat(prompt, [], 180000); // 3 min timeout
+            updateMasterMemory(initialMaster);
+            console.log('[IPC] Initial master memory created');
+            return initialMaster;
+        } catch (e) {
+            console.error('[IPC] Failed to create initial master memory:', e);
+            return null;
+        }
+    }
+
+    // Incremental update: merge new summary with existing master (no truncation - allow growth)
+    const prompt = `You are updating a comprehensive MASTER MEMORY — a detailed knowledge base about a user.
+
+This document should be DETAILED and COMPREHENSIVE, up to 5000 words. DO NOT summarize or shorten - preserve all existing information and ADD new details.
+
+CURRENT MASTER MEMORY:
+${currentMaster}
+
+---
+
+NEW CONVERSATION SUMMARY to integrate:
+${newSummary}
+
+---
+
+YOUR TASK: Produce an UPDATED master memory that integrates ALL new information.
+
+Rules:
+1. PRESERVE all existing information - do not remove or shorten anything
+2. ADD new facts, details, and context from the new summary
+3. MERGE related information into appropriate sections
+4. UPDATE information only if explicitly contradicted by newer info
+5. EXPAND sections with new details rather than replacing
+6. Maintain all the detailed sections (About User, Projects, Technical Environment, etc.)
+7. The result should be MORE detailed than the input, not less
+8. Write in third person
+
+Updated Master Memory:`;
+
+    try {
+        const { llm } = await import('./llm');
+        const updatedMaster = await llm.chat(prompt, [], 180000); // 3 min timeout
+        updateMasterMemory(updatedMaster);
+        console.log('[IPC] Master memory updated incrementally');
+        return updatedMaster;
+    } catch (e) {
+        console.error('[IPC] Failed to update master memory incrementally:', e);
+        return null;
+    }
+}
+
+// Full regeneration - processes summaries in batches
+// Used when explicitly requested or when starting from scratch
+async function regenerateMasterMemoryFull(): Promise<string | null> {
     const summaries = getAllChatSummaries();
     if (summaries.length === 0) {
         updateMasterMemory('');
         return null;
     }
 
-    const summaryText = summaries.map((s, i) => `### Conversation ${i + 1}: ${s.session_id}\n${s.summary}`).join('\n\n---\n\n');
-    
-    const prompt = `You are creating a MASTER MEMORY - a comprehensive knowledge base synthesized from multiple conversation summaries.
+    console.log(`[IPC] Starting full master memory regeneration from ${summaries.length} summaries...`);
 
-Analyze all the following conversation summaries and create a unified, well-organized master summary that:
-1. **Consolidates Knowledge**: Merge related topics and remove redundancy
-2. **Identifies Patterns**: Note recurring themes, preferences, and important facts about the user
-3. **Preserves Key Details**: Keep specific technical details, decisions, and recommendations
-4. **Creates a Profile**: Build an understanding of the user's interests, projects, and needs
-5. **Highlights Important Information**: Facts, preferences, and context that would be useful to remember
+    const { llm } = await import('./llm');
 
-Organize the output clearly with sections for different topic areas.
+    // Process in batches of 3 for detailed processing
+    const BATCH_SIZE = 3;
+    let currentMaster = '';
+
+    for (let i = 0; i < summaries.length; i += BATCH_SIZE) {
+        const batch = summaries.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(summaries.length / BATCH_SIZE);
+
+        console.log(`[IPC] Processing batch ${batchNum}/${totalBatches}...`);
+
+        const batchText = batch.map((s, j) => `[Session ${i + j + 1}]\n${s.summary}`).join('\n\n---\n\n');
+
+        const isFirstBatch = i === 0;
+
+        const prompt = isFirstBatch
+            ? `You are building a comprehensive MASTER MEMORY from conversation summaries. This should be DETAILED - up to 5000 words.
+
+Include ALL these sections with full details:
+- About the User (background, skills, role, location)
+- Projects & Work (all projects with details, tech stacks, status)
+- Technical Environment (OS, tools, languages, frameworks)
+- Architectural Preferences (patterns, practices, approaches)
+- Stated Preferences & Opinions (likes, dislikes, strong opinions)
+- Key Decisions Made (technical and process decisions)
+- Important Relationships (people, organizations)
+- Recurring Themes & Interests
+
+Write in third person. Include ALL specific details - names, versions, exact preferences. Be comprehensive.
 
 Conversation Summaries:
-${summaryText}
+${batchText}
 
-Master Memory:`;
+Master Memory:`
+            : `You are EXPANDING a master memory with additional conversation summaries.
 
-    try {
-        const { llm } = await import('./llm');
-        const masterContent = await llm.chat(prompt);
-        updateMasterMemory(masterContent);
-        console.log('[IPC] Master memory regenerated successfully');
-        return masterContent;
-    } catch (e) {
-        console.error('[IPC] Failed to regenerate master memory:', e);
-        return null;
+This document should be COMPREHENSIVE - up to 5000 words. DO NOT summarize or shorten.
+
+CURRENT MASTER MEMORY:
+${currentMaster}
+
+---
+
+ADDITIONAL SUMMARIES (batch ${batchNum}):
+${batchText}
+
+---
+
+EXPAND the master memory with ALL new information. PRESERVE everything existing. ADD new details. The result should be MORE detailed, not less. Write in third person.
+
+Expanded Master Memory:`;
+
+        try {
+            currentMaster = await llm.chat(prompt, [], 240000); // 4 min timeout per batch
+        } catch (e) {
+            console.error(`[IPC] Batch ${batchNum} failed:`, e);
+            if (currentMaster) break; // Use what we have
+            throw e; // Fail if no progress
+        }
     }
+
+    updateMasterMemory(currentMaster);
+    console.log(`[IPC] Master memory regenerated from ${summaries.length} summaries`);
+    return currentMaster;
+}
+
+// Main entry point - full regeneration
+async function regenerateMasterMemory(): Promise<string | null> {
+    return regenerateMasterMemoryFull();
 }
 
 function safeParseJson<T>(input: string, fallback: T): T {
@@ -147,26 +321,71 @@ export async function evaluateAndStoreMemoryForMessage(params: {
     const text = (params.content || '').trim();
     if (!text || isTrivialMessage(text)) return;
 
-        const prompt = `You are a strict memory filter. Decide if the following single message should be saved as LONG-TERM memory that a user would want in future chats.
-
-Store ONLY durable, user-relevant information such as:
-- Stable personal preferences or profile facts
-- Ongoing projects, specs, requirements, or architecture choices
-- Decisions made or commitments
-- Important instructions or constraints
-- Long-term plans, schedules, or goals
-- Key factual statements about important entities the user is likely to reference later
-
-Do NOT store:
+    // Get strictness setting
+    const strictness = getSetting<'lenient' | 'balanced' | 'strict'>('memoryStrictness', 'balanced');
+    
+    // Build strictness-specific prompt
+    let storeInstructions = '';
+    let dontStoreInstructions = '';
+    
+    if (strictness === 'lenient') {
+        storeInstructions = `Store information that could be useful in future conversations, including:
+- Personal preferences, facts, or profile information
+- Projects, specs, requirements, or technical choices
+- Decisions, commitments, or agreements
+- Instructions, constraints, or guidelines
+- Plans, schedules, goals, or deadlines
+- Facts about entities, tools, technologies mentioned
+- General knowledge shared that might be referenced again`;
+        
+        dontStoreInstructions = `Do NOT store:
+- Simple greetings or pleasantries
+- Generic filler phrases`;
+    } else if (strictness === 'strict') {
+        storeInstructions = `Store ONLY high-value, explicitly stated information:
+- Direct personal preferences the user explicitly stated
+- Major decisions or commitments clearly made
+- Critical project requirements explicitly mentioned
+- Core facts about important entities central to the user's work`;
+        
+        dontStoreInstructions = `Do NOT store:
 - Greetings, small talk, or pleasantries
-- One-off troubleshooting steps or ephemeral details
+- Troubleshooting steps or temporary solutions
 - Generic statements or common knowledge
+- Technical details that are easily searchable
+- Speculation, suggestions, or hypotheticals
+- Anything not explicitly and directly stated by the user
+- Inferred or implied information`;
+    } else {
+        // balanced (default) — tightened
+        storeInstructions = `Store ONLY explicitly stated, durable, high-signal information such as:
+- Personal preferences the user directly and clearly stated ("I prefer X", "I always use Y")
+- Concrete project names, product names, or specific technical architecture decisions
+- Firm decisions or commitments the user explicitly made ("We decided to go with X", "I chose Y")
+- Specific constraints, requirements, or deadlines stated as facts
+- Long-term goals or plans the user described in their own words`;
+
+        dontStoreInstructions = `Do NOT store:
+- Greetings, small talk, pleasantries, or filler
+- Code snippets, error messages, stack traces, or log output
+- Questions the user asked (unless the question itself reveals a strong preference)
+- Assistant explanations, suggestions, or recommendations (unless the user confirmed them as a decision)
+- One-off troubleshooting steps, debugging attempts, or ephemeral details
+- Generic or common-knowledge statements ("React is a library", "APIs use HTTP")
+- Vague or implied preferences ("seems like they like X")
 - Redundant facts already implied by the message itself
-- Speculation or unverified claims
-- Anything that won’t matter in future conversations
+- Speculation, hypotheticals, or unverified claims
+- Anything that won't clearly matter in future conversations`;
+    }
+
+    const prompt = `You are a ${strictness === 'strict' ? 'very strict' : strictness === 'lenient' ? 'inclusive' : 'balanced'} memory filter. Decide if the following single message should be saved as LONG-TERM memory that a user would want in future chats.
+
+${storeInstructions}
+
+${dontStoreInstructions}
 
 If the role is 'assistant', store ONLY if it repeats a verified user fact or a decision the user made.
-If unsure, set store to false.
+If unsure, set store to ${strictness === 'lenient' ? 'true' : 'false'}.
 
 Return JSON ONLY with this shape:
 {
@@ -178,6 +397,10 @@ Role: ${role}
 Message: ${text}
 JSON:`;
 
+    // Minimum content length filter: skip very short messages
+    if (role === 'user' && text.length < 30) return;
+    if (role === 'assistant' && text.length < 50) return;
+
     try {
         const { llm } = await import('./llm');
         const response = await llm.chat(prompt);
@@ -187,6 +410,26 @@ JSON:`;
         if (!memoryText) return;
         if (memoryText.split(/\s+/).length < 4) return;
         if (memoryText.length > 280) return;
+
+        // Post-LLM filter: skip memories matching generic / low-value patterns
+        const genericPatterns = [
+            /^the user (asked|said|mentioned|wanted|is|was|has|had)\b/i,
+            /^(this|that|it) (is|was|seems|appears|looks)\b/i,
+            /^(a|an|the) (good|great|nice|common|typical|standard|normal)\b/i,
+            /\b(in general|generally speaking|as usual|as always)\b/i,
+        ];
+        if (genericPatterns.some(p => p.test(memoryText))) return;
+
+        // Post-LLM filter: skip near-duplicates via substring check against existing session memories
+        if (params.sessionId) {
+            const existingMemories = getMemoryRecordsForSession(params.sessionId);
+            const memLower = memoryText.toLowerCase();
+            const isDuplicate = existingMemories.some((m: any) => {
+                const existing = (m.content || '').toLowerCase();
+                return existing === memLower || existing.includes(memLower) || memLower.includes(existing);
+            });
+            if (isDuplicate) return;
+        }
 
         await insertMemoryRecord({
             content: memoryText,
@@ -204,8 +447,43 @@ async function extractEntitiesForSession(sessionId: string): Promise<void> {
         const memories = getMemoryRecordsForSession(sessionId);
         if (!memories || memories.length === 0) return;
 
+        // Get strictness setting
+        const strictness = getSetting<'lenient' | 'balanced' | 'strict'>('entityStrictness', 'balanced');
+
         const memoryText = memories.map((m: any) => `- ${m.content}`).join('\n');
-        const prompt = `You are extracting entities from long-term memory statements. Only keep entities worth remembering for future chats.
+        
+        // Build strictness-specific rules
+        let rules = '';
+        if (strictness === 'lenient') {
+            rules = `Rules:
+- Include all entities mentioned in the memory statements.
+- Include people, organizations, products, places, projects, technologies, tools, and concepts.
+- Be inclusive - if an entity is mentioned, it's probably worth tracking.
+- Facts should be concise and verifiable.
+- Return {\"entities\": []} only if there are no discernible entities at all.`;
+        } else if (strictness === 'strict') {
+            rules = `Rules:
+- Only include entities that are CENTRAL to the user's work or life.
+- Exclude generic tools, common technologies, libraries, or frameworks unless the user has a specific relationship to them.
+- Exclude one-time mentions or incidental references.
+- Only include entities the user has explicitly discussed in detail or shown clear importance.
+- Facts must be specific, verified, and directly from the memory statements.
+- When in doubt, exclude the entity.
+- Return {\"entities\": []} if no entities are clearly significant.`;
+        } else {
+            // balanced (default) — tightened
+            rules = `Rules:
+- Only include entities explicitly and repeatedly mentioned or clearly central to the user's work.
+- Include ONLY entities the user has a specific, ongoing relationship with (their projects, their tools, people they work with, organizations they belong to).
+- Exclude passing mentions, one-off references, generic examples, or entities mentioned only in assistant advice.
+- Exclude generic or common single-word entities like "API", "database", "server", "frontend", "backend", "app", "website", "code".
+- Exclude entities used only as illustrative examples or in generic advice.
+- Entity names must be at least 3 characters long.
+- Facts must be concise, specific, durable, and directly from the memory statements — no inferred facts.
+- If no entities clearly meet the bar, return {\"entities\": []}.`;
+        }
+        
+        const prompt = `You are extracting entities from long-term memory statements. ${strictness === 'strict' ? 'Be very selective - only keep high-value entities.' : strictness === 'lenient' ? 'Be inclusive - capture entities that might be useful later.' : 'Only keep entities worth remembering for future chats.'}
 
 Return JSON only with this shape:
 {
@@ -218,12 +496,7 @@ Return JSON only with this shape:
     ]
 }
 
-Rules:
-- Only include entities explicitly mentioned in the memory statements.
-- Include ONLY entities that are likely to be referenced again (user-relevant people, projects, products, places, or systems).
-- Exclude generic tools, common technologies, or incidental mentions unless they are clearly tied to the user’s ongoing work or preferences.
-- Facts must be concise, specific, and durable.
-- If no entities meet the criteria, return {"entities": []}.
+${rules}
 
 Memory statements:
 ${memoryText}
@@ -237,6 +510,14 @@ JSON:`;
 
         if (!parsed.entities || parsed.entities.length === 0) return;
 
+        // Blocklist of very common short entity names that are too generic
+        const ENTITY_BLOCKLIST = new Set([
+            'api', 'app', 'web', 'url', 'css', 'sql', 'cli', 'ide', 'ui', 'ux',
+            'html', 'http', 'json', 'xml', 'yaml', 'code', 'data', 'file', 'bug',
+            'server', 'client', 'database', 'frontend', 'backend', 'website',
+            'user', 'admin', 'test', 'dev', 'prod', 'staging'
+        ]);
+
         const touchedEntityIds = new Set<number>();
         for (const entity of parsed.entities) {
             const name = (entity.name || '').trim();
@@ -244,8 +525,11 @@ JSON:`;
             const type = (entity.type || 'Unknown').trim() || 'Unknown';
             const facts = Array.isArray(entity.facts) ? entity.facts.filter(Boolean).map(f => f.trim()).filter(Boolean) : [];
 
-            if (name.length < 2) continue;
+            // Min name length: 3 chars
+            if (name.length < 3) continue;
             if (facts.length === 0) continue;
+            // Skip blocklisted generic names
+            if (ENTITY_BLOCKLIST.has(name.toLowerCase())) continue;
 
             const entityId = upsertEntity(name, type);
             if (!entityId) continue;
@@ -312,24 +596,47 @@ export async function summarizeSession(sessionId: string): Promise<string | null
     if (!memories || memories.length === 0) return null;
 
     const conversationText = memories.map((m: any) => `[${m.role || 'unknown'}]: ${m.content}`).join('\n');
-    const prompt = `You are an expert at analyzing conversations. Create a VERY DETAILED summary of the following chat conversation.
+    const prompt = `You are extracting a user profile summary from a conversation. This summary will be aggregated with others to build a master memory of who this user is.
 
-Include ALL of these elements in your summary:
-1. **Main Topic**: What is the primary subject being discussed?
-2. **Key Questions Asked**: List any important questions the user asked
-3. **Answers & Information Received**: Document specific facts, data, explanations, or solutions provided
-4. **Technical Details**: Include any code snippets, commands, configurations, or technical specifications mentioned
-5. **Recommendations**: Any suggestions or best practices shared
-6. **Decisions Made**: Any conclusions reached or choices decided upon
-7. **Action Items**: Any follow-up tasks or next steps identified
-8. **Key Entities**: People, tools, technologies, locations, or concepts mentioned
+FOCUS ON THE USER, NOT THE ASSISTANT. Extract information that reveals:
 
-Be thorough and specific. Do not omit important details. The summary should allow someone who hasn't read the conversation to fully understand what was discussed.
+## User Identity & Context
+- What is the user working on? (specific project names, company, role)
+- What is their technical background/skill level?
+- What domain or industry are they in?
+
+## User Preferences & Working Style
+- How do they prefer to work? (tools, frameworks, languages)
+- What coding style or conventions do they follow?
+- What do they explicitly like or dislike?
+
+## Decisions & Commitments
+- What specific choices did the user make in this conversation?
+- What approaches did they commit to?
+- What did they reject or decide against?
+
+## Problems & Goals
+- What problems were they trying to solve?
+- What are their stated goals or objectives?
+- What constraints or requirements do they have?
+
+## Key Relationships
+- People mentioned (colleagues, clients, team members)
+- Projects and their status
+- Technologies and tools they actively use (not just discussed)
+
+IMPORTANT GUIDELINES:
+- Write from a third-person perspective about "the user"
+- Include ONLY information that came from or was confirmed by the user
+- Skip generic assistant advice, explanations, or code examples
+- Skip anything the user merely asked about but didn't adopt
+- Focus on durable facts, not transient details
+- Be concise but specific - names, versions, concrete details matter
 
 Conversation:
 ${conversationText}
 
-Detailed Summary:`;
+User Profile Summary:`;
 
     try {
         const { llm } = await import('./llm');
@@ -338,10 +645,10 @@ Detailed Summary:`;
 
         // Extract and update entity memory
         extractEntitiesForSession(sessionId);
-        
-        // Regenerate master memory after updating a summary
-        regenerateMasterMemory();
-        
+
+        // Incrementally update master memory with the new summary (context-efficient)
+        updateMasterMemoryIncremental(summary);
+
         return summary;
     } catch (e) {
         console.error("Failed to summarize session:", e);
@@ -461,7 +768,7 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
       };
   });
 
-  ipcMain.handle('rag:chat', async (_, query: string, appName?: string) => {
+  ipcMain.handle('rag:chat', async (_, query: string, appName?: string, conversationHistory?: { role: string; content: string }[]) => {
       const db = getDB();
       const tokens = tokenizeQuery(query);
       const ftsQuery = tokens.length > 0 ? tokens.join(' OR ') : query;
@@ -598,11 +905,20 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
 
     const contextBlock = `MASTER MEMORY:\n${masterRelevant || masterFallback ? clipText(masterContent || '(none)', 500) : '(not relevant)'}\n\nRELEVANT MEMORIES:\n${memoryLines || '(none)'}\n\nRELEVANT MESSAGES:\n${messageLines || '(none)'}\n\nRELEVANT SUMMARIES:\n${summaryLines || '(none)'}\n\nRELEVANT ENTITIES:\n${entityLines || '(none)'}\n\nRELEVANT ENTITY FACTS:\n${factLines || '(none)'}`;
 
+    // Build conversation history block if provided
+    let historyBlock = '';
+    if (conversationHistory && conversationHistory.length > 0) {
+        const historyLines = conversationHistory.map(msg => 
+            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${clipText(msg.content, 500)}`
+        ).join('\n\n');
+        historyBlock = `\nCONVERSATION HISTORY:\n${historyLines}\n`;
+    }
+
     const prompt = `You are a helpful assistant that answers using ONLY the provided context from the user's memories, conversations, summaries, and entities.
 Prefer specific evidence from messages, summaries, entities, and memories over the master memory. Use the master memory only as supplemental context.
 If the context does not contain the answer, say you don't have that information and ask a brief follow-up question.
 Do not fabricate details. Cite evidence by referencing item labels like [Memory 2] or [Message 3].
-
+${historyBlock}
 User question:
 ${query}
 
@@ -741,4 +1057,155 @@ Answer:`;
   ipcMain.handle('permissions:request-screen-recording', async () => {
       return await requestScreenRecordingPermission();
   });
+
+  // === RAG CONVERSATION HANDLERS ===
+  
+  ipcMain.handle('rag:create-conversation', (_, id: string, title?: string) => {
+      return createRagConversation(id, title);
+  });
+
+  ipcMain.handle('rag:get-conversations', () => {
+      return getRagConversations();
+  });
+
+  ipcMain.handle('rag:get-conversation', (_, id: string) => {
+      return getRagConversation(id);
+  });
+
+  ipcMain.handle('rag:get-messages', (_, conversationId: string) => {
+      return getRagMessages(conversationId);
+  });
+
+  ipcMain.handle('rag:add-message', (_, conversationId: string, role: 'user' | 'assistant', content: string, context?: any) => {
+      return addRagMessage(conversationId, role, content, context);
+  });
+
+  ipcMain.handle('rag:update-conversation-title', (_, id: string, title: string) => {
+      updateRagConversationTitle(id, title);
+      return true;
+  });
+
+  ipcMain.handle('rag:delete-conversation', (_, id: string) => {
+      return deleteRagConversation(id);
+  });
+
+  // === SETTINGS HANDLERS ===
+  
+  ipcMain.handle('settings:get', () => {
+      return getSettings();
+  });
+
+  ipcMain.handle('settings:save', (_, key: string, value: any) => {
+      saveSetting(key, value);
+      console.log(`[IPC] Setting saved: ${key} =`, value);
+      return true;
+  });
+
+  // === REPROCESS ALL SESSIONS ===
+
+  ipcMain.handle('db:reprocess-all-sessions', async (_, clean: boolean = false) => {
+      const db = getDB();
+      const sessions = db.prepare('SELECT id FROM conversations').all() as { id: string }[];
+      let processed = 0;
+
+      if (clean) {
+          // Clean reprocess: delete all old data and rebuild from scratch
+          console.log('[IPC] Clean reprocess: clearing all entities, facts, edges, and memories...');
+
+          // Drop FTS AFTER DELETE triggers first — if the FTS index is out of sync
+          // with the source tables, the delete triggers will error and silently
+          // prevent rows from being deleted. We recreate them after.
+          db.exec('DROP TRIGGER IF EXISTS memories_ad');
+          db.exec('DROP TRIGGER IF EXISTS entities_ad');
+          db.exec('DROP TRIGGER IF EXISTS entity_facts_ad');
+
+          // Delete only strictness-dependent data (children first)
+          // Conversations, messages, chat_summaries, and master_memory are NOT touched
+          db.prepare('DELETE FROM entity_edges').run();
+          db.prepare('DELETE FROM entity_facts').run();
+          db.prepare('DELETE FROM entity_sessions').run();
+          db.prepare('DELETE FROM entities').run();
+          db.prepare('DELETE FROM memories').run();
+
+          // Recreate the delete triggers
+          db.exec(`CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
+              INSERT INTO memory_fts(memory_fts, rowid, content) VALUES('delete', old.id, old.content);
+          END;`);
+          db.exec(`CREATE TRIGGER IF NOT EXISTS entities_ad AFTER DELETE ON entities BEGIN
+              INSERT INTO entity_fts(entity_fts, rowid, name, summary, type) VALUES('delete', old.id, old.name, old.summary, old.type);
+          END;`);
+          db.exec(`CREATE TRIGGER IF NOT EXISTS entity_facts_ad AFTER DELETE ON entity_facts BEGIN
+              INSERT INTO entity_fact_fts(entity_fact_fts, rowid, fact, entity_id) VALUES('delete', old.id, old.fact, old.entity_id);
+          END;`);
+
+          // Rebuild FTS indexes so they reflect the now-empty source tables
+          try {
+              db.exec("INSERT INTO memory_fts(memory_fts) VALUES('rebuild')");
+              db.exec("INSERT INTO entity_fts(entity_fts) VALUES('rebuild')");
+              db.exec("INSERT INTO entity_fact_fts(entity_fact_fts) VALUES('rebuild')");
+          } catch (e) {
+              console.error('[IPC] FTS rebuild during clean reprocess failed (non-fatal):', e);
+          }
+
+          const deletedCounts = {
+              entities: (db.prepare('SELECT COUNT(*) as c FROM entities').get() as { c: number }).c,
+              memories: (db.prepare('SELECT COUNT(*) as c FROM memories').get() as { c: number }).c,
+              facts: (db.prepare('SELECT COUNT(*) as c FROM entity_facts').get() as { c: number }).c,
+          };
+          console.log('[IPC] Post-delete counts (should all be 0):', deletedCounts);
+
+          // Notify frontend to refresh immediately after clearing
+          BrowserWindow.getAllWindows().forEach(win => {
+              win.webContents.send('reprocess:progress', { phase: 'cleared', processed: 0, total: sessions.length });
+          });
+
+          for (const session of sessions) {
+              try {
+                  // Re-evaluate memories for each message in the session
+                  const msgs = db.prepare('SELECT id, role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC').all(session.id) as { id: number; role: string; content: string }[];
+                  const conv = db.prepare('SELECT app_name FROM conversations WHERE id = ?').get(session.id) as { app_name: string } | undefined;
+                  const appName = conv?.app_name || 'Unknown';
+
+                  for (const msg of msgs) {
+                      await evaluateAndStoreMemoryForMessage({
+                          sessionId: session.id,
+                          appName,
+                          role: msg.role,
+                          content: msg.content,
+                          messageId: msg.id
+                      });
+                  }
+
+                  // Re-extract entities from the newly created memories
+                  await extractEntitiesForSession(session.id);
+                  processed++;
+
+                  // Send progress updates
+                  BrowserWindow.getAllWindows().forEach(win => {
+                      win.webContents.send('reprocess:progress', { phase: 'processing', processed, total: sessions.length });
+                  });
+              } catch (e) {
+                  console.error(`[IPC] Failed to reprocess session ${session.id}:`, e);
+              }
+          }
+
+          // Rebuild entity edges from mentions across all entities
+          rebuildEntityEdgesForAllSessions();
+      } else {
+          // Additive reprocess: keep existing data, just re-run entity extraction on top
+          console.log('[IPC] Additive reprocess: re-extracting entities with current settings (keeping existing data)...');
+          for (const session of sessions) {
+              try {
+                  await extractEntitiesForSession(session.id);
+                  processed++;
+              } catch (e) {
+                  console.error(`[IPC] Failed to reprocess session ${session.id}:`, e);
+              }
+          }
+      }
+
+      console.log(`[IPC] Reprocessed ${processed} sessions (clean=${clean}) with current strictness settings`);
+      return { processed, total: sessions.length };
+  });
 }
+
