@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { cn } from "@/lib/utils";
+import { cn } from "@renderer/lib/utils";
 
 export const GlowingStarsBackgroundCard = ({
   className,

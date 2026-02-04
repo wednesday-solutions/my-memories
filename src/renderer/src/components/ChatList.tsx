@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Modal, ModalBody, ModalContent, ModalTrigger } from './ui/animated-modal';
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from './ui/item';
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from './ui/item';
 import { BorderBeam } from './ui/border-beam';
 import { ProgressiveBlur } from './ui/progressive-blur';
 import { SourceFilterTabs, Source } from './SourceFilterTabs';
@@ -65,7 +65,7 @@ function ChatListItem({ session, index, formattedTime, onSelect, onDelete }: Cha
         setGlareStyle({ x: 50, y: 50, opacity: 0, rotateX: 0, rotateY: 0 });
     };
 
-    const markdownComponents = {
+    const markdownComponents: Record<string, React.ComponentType<any>> = {
         p: ({ children }: { children?: React.ReactNode }) => (
             <p className="mb-3 last:mb-0 text-neutral-200">{children}</p>
         ),
