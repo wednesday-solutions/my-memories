@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface MasterMemoryData {
     content: string | null;
     updated_at: string | null;
 }
 
+type RegenerateMode = 'master-only' | 'all-summaries';
+
 export function MasterMemoryModal() {
     const [masterMemory, setMasterMemory] = useState<MasterMemoryData>({ content: null, updated_at: null });
     const [loading, setLoading] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
+    const [showRegenerateChoice, setShowRegenerateChoice] = useState(false);
+    const [regenerateProgress, setRegenerateProgress] = useState<{ current: number; total: number } | null>(null);
     const [copied, setCopied] = useState(false);
 
     const fetchMasterMemory = async () => {
@@ -26,17 +31,38 @@ export function MasterMemoryModal() {
         }
     };
 
-    const handleRegenerate = async () => {
+    const handleRegenerate = async (mode: RegenerateMode) => {
+        setShowRegenerateChoice(false);
         setRegenerating(true);
+        setRegenerateProgress(null);
+
         try {
-            const newContent = await window.api.regenerateMasterMemory();
-            if (newContent) {
-                setMasterMemory({ content: newContent, updated_at: new Date().toISOString() });
+            if (mode === 'master-only') {
+                const newContent = await window.api.regenerateMasterMemory();
+                if (newContent) {
+                    setMasterMemory({ content: newContent, updated_at: new Date().toISOString() });
+                }
+            } else {
+                // Re-summarize all chats then regenerate master
+                const sessions = await window.api.getChatSessions();
+                const total = sessions.length;
+                setRegenerateProgress({ current: 0, total });
+
+                for (let i = 0; i < sessions.length; i++) {
+                    await window.api.summarizeSession(sessions[i].session_id);
+                    setRegenerateProgress({ current: i + 1, total });
+                }
+
+                const newContent = await window.api.regenerateMasterMemory();
+                if (newContent) {
+                    setMasterMemory({ content: newContent, updated_at: new Date().toISOString() });
+                }
             }
         } catch (e) {
             console.error("Failed to regenerate master memory", e);
         } finally {
             setRegenerating(false);
+            setRegenerateProgress(null);
         }
     };
 
@@ -92,13 +118,15 @@ export function MasterMemoryModal() {
                     {/* Regenerate Button */}
                     <button
                         disabled={regenerating}
-                        onClick={handleRegenerate}
+                        onClick={() => setShowRegenerateChoice(true)}
                         className="px-3 py-1.5 text-sm font-medium text-white bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 hover:border-neutral-600 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {regenerating ? (
                             <span className="flex items-center gap-2">
-                                <span className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                                Regenerating...
+                                <span className="w-3 h-3 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                                {regenerateProgress
+                                    ? `${regenerateProgress.current}/${regenerateProgress.total}`
+                                    : 'Regenerating...'}
                             </span>
                         ) : (
                             <span className="flex items-center gap-2">
@@ -112,6 +140,62 @@ export function MasterMemoryModal() {
                     </button>
                 </div>
             </div>
+
+            {/* Regenerate Choice Modal */}
+            <AnimatePresence>
+                {showRegenerateChoice && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-neutral-950/90 backdrop-blur-sm z-20 flex items-center justify-center p-4"
+                        onClick={() => setShowRegenerateChoice(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ type: 'spring', bounce: 0.2, duration: 0.3 }}
+                            className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 w-full max-w-sm"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="text-base font-semibold text-white mb-1">Regenerate</h3>
+                            <p className="text-xs text-neutral-500 mb-4">
+                                Choose what to regenerate
+                            </p>
+
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => handleRegenerate('master-only')}
+                                    className="w-full p-3 rounded-lg bg-neutral-800/60 border border-neutral-700 hover:bg-neutral-800 hover:border-neutral-600 transition-all text-left"
+                                >
+                                    <p className="text-sm text-white font-medium">Master summary only</p>
+                                    <p className="text-xs text-neutral-500 mt-0.5">
+                                        Rebuild from existing chat summaries
+                                    </p>
+                                </button>
+
+                                <button
+                                    onClick={() => handleRegenerate('all-summaries')}
+                                    className="w-full p-3 rounded-lg bg-neutral-800/60 border border-neutral-700 hover:bg-neutral-800 hover:border-neutral-600 transition-all text-left"
+                                >
+                                    <p className="text-sm text-white font-medium">All chat summaries + master</p>
+                                    <p className="text-xs text-neutral-500 mt-0.5">
+                                        Re-summarize every chat first
+                                    </p>
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => setShowRegenerateChoice(false)}
+                                className="w-full mt-3 py-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto mt-4 pr-2 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
