@@ -47,7 +47,7 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
-      ragChat: (query: string, appName?: string) => Promise<{ answer: string; context: any }>
+      ragChat: (query: string, appName?: string, conversationHistory?: { role: string; content: string }[]) => Promise<{ answer: string; context: any }>
       getUserProfile: () => Promise<UserProfile | null>
       saveUserProfile: (profile: UserProfile) => Promise<boolean>
       

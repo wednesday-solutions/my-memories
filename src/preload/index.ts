@@ -23,8 +23,19 @@ try {
     getMasterMemory: () => ipcRenderer.invoke('db:get-master-memory'),
     regenerateMasterMemory: () => ipcRenderer.invoke('db:regenerate-master-memory'),
 
-    // RAG Chat
-    ragChat: (query: string, appName?: string) => ipcRenderer.invoke('rag:chat', query, appName),
+    // RAG Chat - updated to support conversation history
+    ragChat: (query: string, appName?: string, conversationHistory?: { role: string; content: string }[]) => 
+      ipcRenderer.invoke('rag:chat', query, appName, conversationHistory),
+
+    // RAG Conversation History
+    createRagConversation: (id: string, title?: string) => ipcRenderer.invoke('rag:create-conversation', id, title),
+    getRagConversations: () => ipcRenderer.invoke('rag:get-conversations'),
+    getRagConversation: (id: string) => ipcRenderer.invoke('rag:get-conversation', id),
+    getRagMessages: (conversationId: string) => ipcRenderer.invoke('rag:get-messages', conversationId),
+    addRagMessage: (conversationId: string, role: 'user' | 'assistant', content: string, context?: any) => 
+      ipcRenderer.invoke('rag:add-message', conversationId, role, content, context),
+    updateRagConversationTitle: (id: string, title: string) => ipcRenderer.invoke('rag:update-conversation-title', id, title),
+    deleteRagConversation: (id: string) => ipcRenderer.invoke('rag:delete-conversation', id),
 
     // Entities
     getEntities: (appName?: string) => ipcRenderer.invoke('db:get-entities', appName),
@@ -37,6 +48,16 @@ try {
     // User Profile
     getUserProfile: () => ipcRenderer.invoke('db:get-user-profile'),
     saveUserProfile: (profile: any) => ipcRenderer.invoke('db:save-user-profile', profile),
+
+    // App Settings
+    getSettings: () => ipcRenderer.invoke('settings:get'),
+    saveSetting: (key: string, value: any) => ipcRenderer.invoke('settings:save', key, value),
+    reprocessAllSessions: (clean?: boolean) => ipcRenderer.invoke('db:reprocess-all-sessions', clean ?? false),
+    onReprocessProgress: (callback: (data: { phase: string; processed: number; total: number }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('reprocess:progress', subscription)
+      return () => ipcRenderer.removeListener('reprocess:progress', subscription)
+    },
     
     // Watcher Events
     onWatcherData: (callback: (data: any) => void) => {
