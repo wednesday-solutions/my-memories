@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 import { BorderBeam } from './ui/border-beam';
 import { SourceFilterTabs, Source } from './SourceFilterTabs';
-import { IconSearch, IconX } from '@tabler/icons-react';
+import { IconSearch, IconX, IconPlus, IconMinus, IconFocus2 } from '@tabler/icons-react';
 
 interface GraphNode {
     id: number;
@@ -263,50 +263,84 @@ export function EntityGraph({ }: EntityGraphProps) {
         setShowSearchResults(matches.length > 0);
     }, [graph.nodes]);
 
-    // Zoom to a specific node
-    const zoomToNode = useCallback((node: GraphNode) => {
+    // Zoom to a specific node with pan/zoom animation
+    const zoomToNode = useCallback((node: GraphNode, e?: React.MouseEvent) => {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+
         setSearchQuery('');
         setShowSearchResults(false);
         setSelectedNodeId(node.id);
 
         const fg = graphRef.current;
-        if (!fg) {
-            console.log('[EntityGraph] No graph ref');
-            return;
+        if (!fg) return;
+
+        // Find node in graphData - ForceGraph mutates these with x, y, z coordinates
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const targetNode = graphData.nodes.find((n: any) => n.id === node.id) as any;
+
+        console.log('[ZoomToNode] targetNode:', targetNode?.name, 'coords:', targetNode?.x, targetNode?.y, targetNode?.z);
+
+        if (targetNode && targetNode.x !== undefined) {
+            const x = targetNode.x;
+            const y = targetNode.y;
+            const z = targetNode.z;
+
+            // Animate camera to node position
+            const distance = 350;
+            fg.cameraPosition(
+                { x, y, z: z + distance },
+                { x, y, z },
+                1500
+            );
+            console.log('[ZoomToNode] Camera animating to node');
+        } else {
+            // Fallback: focus on entity neighborhood
+            setFocusEntityId(node.id);
         }
+    }, [graphData.nodes]);
 
-        // Get the node object with x, y, z coordinates from the simulation
-        const graphNode = fg.graphData().nodes.find((n: any) => n.id === node.id);
-        if (!graphNode) {
-            console.log('[EntityGraph] Node not found in graph data:', node.id);
-            return;
+    // Zoom controls using wheel events (these work with trackball controls)
+    const handleZoomIn = useCallback(() => {
+        const fg = graphRef.current;
+        if (!fg) return;
+
+        const renderer = fg.renderer?.();
+        const canvas = renderer?.domElement;
+        if (canvas) {
+            const wheelEvent = new WheelEvent('wheel', {
+                deltaY: -200,
+                bubbles: true,
+                cancelable: true,
+            });
+            canvas.dispatchEvent(wheelEvent);
         }
+    }, []);
 
-        // Check if node has coordinates (simulation might still be running)
-        const x = graphNode.x ?? 0;
-        const y = graphNode.y ?? 0;
-        const z = graphNode.z ?? 0;
+    const handleZoomOut = useCallback(() => {
+        const fg = graphRef.current;
+        if (!fg) return;
 
-        console.log(`[EntityGraph] Zooming to node ${node.name} at (${x}, ${y}, ${z})`);
+        const renderer = fg.renderer?.();
+        const canvas = renderer?.domElement;
+        if (canvas) {
+            const wheelEvent = new WheelEvent('wheel', {
+                deltaY: 200,
+                bubbles: true,
+                cancelable: true,
+            });
+            canvas.dispatchEvent(wheelEvent);
+        }
+    }, []);
 
-        // Calculate distance from origin, with minimum to avoid division issues
-        const distFromOrigin = Math.max(Math.hypot(x, y, z), 1);
+    const handleResetView = useCallback(() => {
+        const fg = graphRef.current;
+        if (!fg) return;
 
-        // Position camera at a fixed distance from the node, looking at the node
-        const cameraDistance = 300;
-        const ratio = cameraDistance / distFromOrigin;
-
-        // Camera position: offset from node position
-        const camPos = {
-            x: x + (x === 0 ? cameraDistance : x * ratio * 0.3),
-            y: y + (y === 0 ? cameraDistance * 0.5 : y * ratio * 0.3),
-            z: z + cameraDistance
-        };
-
-        // Look at the node
-        const lookAt = { x, y, z };
-
-        fg.cameraPosition(camPos, lookAt, 1000);
+        // Reset to fit all nodes
+        fg.zoomToFit?.(500, 50);
     }, []);
 
     const clearSearch = useCallback(() => {
@@ -465,7 +499,7 @@ export function EntityGraph({ }: EntityGraphProps) {
                                     {searchResults.map((node, idx) => (
                                         <button
                                             key={node.id}
-                                            onClick={() => zoomToNode(node)}
+                                            onClick={(e) => zoomToNode(node, e)}
                                             className={cn(
                                                 "w-full px-3 py-2 text-left hover:bg-neutral-800 transition-colors flex items-center gap-3",
                                                 idx !== searchResults.length - 1 && "border-b border-neutral-800"
@@ -541,7 +575,7 @@ export function EntityGraph({ }: EntityGraphProps) {
                             showNavInfo={false}
                             enableNodeDrag={true}
                             enableNavigationControls={true}
-                            controlType="trackball"
+                            controlType="orbit"
                             cooldownTime={2000}
                             d3AlphaDecay={0.02}
                             d3VelocityDecay={0.3}
@@ -565,6 +599,31 @@ export function EntityGraph({ }: EntityGraphProps) {
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    {/* Zoom Controls */}
+                    <div className="absolute bottom-4 right-4 flex flex-col gap-1 z-10">
+                        <button
+                            onClick={handleZoomIn}
+                            className="p-2 rounded-lg bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors backdrop-blur-sm"
+                            title="Zoom in"
+                        >
+                            <IconPlus className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={handleZoomOut}
+                            className="p-2 rounded-lg bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors backdrop-blur-sm"
+                            title="Zoom out"
+                        >
+                            <IconMinus className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={handleResetView}
+                            className="p-2 rounded-lg bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors backdrop-blur-sm"
+                            title="Reset view"
+                        >
+                            <IconFocus2 className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Help Text */}
