@@ -131,6 +131,11 @@ declare global {
     openAccessibilitySettings: () => Promise<boolean>
     openScreenRecordingSettings: () => Promise<boolean>
 
+    // Model Download APIs
+    checkModelStatus: () => Promise<{ downloaded: boolean; modelsDir: string }>
+    downloadModels: () => Promise<{ success: boolean; error?: string }>
+    onModelDownloadProgress: (callback: (data: { modelName: string; percent: number; downloadedMB: string; totalMB: string }) => void) => () => void
+
     // Allow additional properties
     [key: string]: any
   }

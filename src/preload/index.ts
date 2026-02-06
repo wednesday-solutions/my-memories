@@ -98,7 +98,16 @@ try {
     requestAccessibilityPermission: () => ipcRenderer.invoke('permissions:request-accessibility'),
     requestScreenRecordingPermission: () => ipcRenderer.invoke('permissions:request-screen-recording'),
     openAccessibilitySettings: () => ipcRenderer.invoke('permissions:open-accessibility-settings'),
-    openScreenRecordingSettings: () => ipcRenderer.invoke('permissions:open-screen-recording-settings')
+    openScreenRecordingSettings: () => ipcRenderer.invoke('permissions:open-screen-recording-settings'),
+    
+    // Model Download APIs
+    checkModelStatus: () => ipcRenderer.invoke('model:check-status'),
+    downloadModels: () => ipcRenderer.invoke('model:download'),
+    onModelDownloadProgress: (callback: (data: { modelName: string; percent: number; downloadedMB: string; totalMB: string }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('model:download-progress', subscription)
+      return () => ipcRenderer.removeListener('model:download-progress', subscription)
+    }
   });
   console.log("API Exposed successfully");
 } catch (e) {

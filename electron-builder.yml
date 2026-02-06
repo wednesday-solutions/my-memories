@@ -14,6 +14,7 @@ extraResources:
     to: .
     filter:
       - "**/*"
+      - "!models/**"
   - from: scripts
     to: scripts
     filter:

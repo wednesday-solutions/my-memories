@@ -2,72 +2,88 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { app } from "electron";
 import * as fs from "fs";
+import os from "os";
+
+// Get the models directory in user's app support folder
+function getModelsDir(): string {
+    const platform = process.platform;
+    let appDataDir: string;
+    
+    if (platform === 'darwin') {
+        appDataDir = path.join(os.homedir(), 'Library', 'Application Support', 'My Memories');
+    } else if (platform === 'win32') {
+        appDataDir = path.join(process.env.APPDATA || os.homedir(), 'My Memories');
+    } else {
+        appDataDir = path.join(os.homedir(), '.my-memories');
+    }
+    
+    return path.join(appDataDir, 'models');
+}
 
 export class LLMService {
   private server: ChildProcess | null = null;
-  private port = 8080; // Default llama-server port or custom
+  private port = 8080;
   private modelPath: string;
   private mmProjPath: string;
   private initialized = false;
 
   constructor() {
-    this.modelPath = path.join(process.resourcesPath, "models", "qwen2.5-vl-3b-instruct-q4_k_m.gguf");
-    this.mmProjPath = path.join(process.resourcesPath, "models", "qwen2.5-vl-3b-instruct-mmproj-f16.gguf");
+    const modelsDir = getModelsDir();
+    this.modelPath = path.join(modelsDir, "Qwen3-VL-4B-Instruct-Q4_K_M.gguf");
+    this.mmProjPath = path.join(modelsDir, "mmproj-Qwen3VL-4B-Instruct-F16.gguf");
+  }
 
-    // In dev mode, resources might be in a different place
-    if (process.env.NODE_ENV === 'development') {
-       this.modelPath = path.join(app.getAppPath(), 'resources', 'models', 'qwen2.5-vl-3b-instruct-q4_k_m.gguf');
-       this.mmProjPath = path.join(app.getAppPath(), 'resources', 'models', 'qwen2.5-vl-3b-instruct-mmproj-f16.gguf');
-    }
+  // Check if models are downloaded
+  modelsExist(): boolean {
+    return fs.existsSync(this.modelPath) && fs.existsSync(this.mmProjPath);
+  }
+
+  getModelsDir(): string {
+    return getModelsDir();
   }
 
   async init() {
     if (this.initialized) return;
 
-    const binName = "llama-server"; // Binary name
+    // Check if models exist
+    if (!this.modelsExist()) {
+      console.error(`[LLMService] Models not found. Please download them first.`);
+      console.error(`[LLMService] Expected model: ${this.modelPath}`);
+      console.error(`[LLMService] Expected mmproj: ${this.mmProjPath}`);
+      throw new Error("Models not downloaded. Please complete onboarding to download the AI model.");
+    }
+
+    const binName = "llama-server";
     let serverPath = "";
 
-    // Locate the binary
     if (app.isPackaged) {
         serverPath = path.join(process.resourcesPath, "bin", binName);
     } else {
-        // In dev, assume it's in resources/bin/ relative to project root
-        // app.getAppPath() points to the root in electron-vite dev usually, or dist/main
-        // Let's try to find it in reasonable locations
         serverPath = path.join(app.getAppPath(), "resources", "bin", binName);
     }
 
     if (!fs.existsSync(serverPath)) {
         console.error(`[LLMService] llama-server binary not found at ${serverPath}`);
-        // Fallback check for dev environment if path differs
         const altPath = path.join(process.cwd(), "resources", "bin", binName);
         if (fs.existsSync(altPath)) {
             serverPath = altPath;
         } else {
             console.error(`[LLMService] llama-server binary also not found at ${altPath}`);
-            return; // Cannot start
+            return;
         }
-    }
-
-    if (!fs.existsSync(this.modelPath)) {
-        console.error(`[LLMService] Model not found at ${this.modelPath}`);
-        return;
     }
 
     console.log(`[LLMService] Starting llama-server from ${serverPath}`);
     console.log(`[LLMService] Model: ${this.modelPath}`);
 
-    // Spawn the server
     this.server = spawn(serverPath, [
       "-m", this.modelPath,
       "--mmproj", this.mmProjPath,
       "--port", String(this.port),
       "--host", "127.0.0.1",
       "--image-min-tokens", "2048",
-      "-c", "32000" // Context size
+      "-c", "32000"
     ]);
-
-
 
     this.server.stderr?.on("data", (data) => {
       console.log(`[llama-server] ${data}`);
@@ -79,7 +95,6 @@ export class LLMService {
         this.initialized = false;
     });
 
-    // Wait for health check
     try {
         await this.waitForReady();
         console.log("[LLMService] Vision server ready!");
@@ -116,15 +131,12 @@ export class LLMService {
             content: []
         }];
 
-        // Add text prompt
         messages[0].content.push({ type: "text", text: message });
 
-        // Add images if any
         for (const imgPath of images) {
             try {
                 const imageBuffer = fs.readFileSync(imgPath);
                 const base64 = imageBuffer.toString("base64");
-                // Guess mime type roughly or default to png/jpeg
                 const mime = imgPath.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
 
                 messages[0].content.push({
@@ -138,7 +150,6 @@ export class LLMService {
             }
         }
 
-        // Create abort controller for timeout (default 5 minutes for LLM inference)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -149,7 +160,7 @@ export class LLMService {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 messages: messages,
-                max_tokens: 8192, // Allow up to ~5000 words for detailed master memory
+                max_tokens: 8192,
                 temperature: 0.7
             }),
             signal: controller.signal
@@ -191,7 +202,6 @@ export class LLMService {
 
 export const llm = new LLMService();
 
-// Ensure cleanup on app exit
 app.on("before-quit", () => {
     llm.stop();
 });

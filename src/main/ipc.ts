@@ -1208,5 +1208,110 @@ Answer:`;
       console.log(`[IPC] Reprocessed ${processed} sessions (clean=${clean}) with current strictness settings`);
       return { processed, total: sessions.length };
   });
+
+  // === MODEL DOWNLOAD HANDLERS ===
+  
+  ipcMain.handle('model:check-status', async () => {
+      const { llm } = await import('./llm');
+      return {
+          downloaded: llm.modelsExist(),
+          modelsDir: llm.getModelsDir()
+      };
+  });
+
+  ipcMain.handle('model:download', async () => {
+      const { llm } = await import('./llm');
+      const modelsDir = llm.getModelsDir();
+      const fs = await import('fs');
+      const path = await import('path');
+      const https = await import('https');
+      
+      // Ensure models directory exists
+      if (!fs.existsSync(modelsDir)) {
+          fs.mkdirSync(modelsDir, { recursive: true });
+      }
+
+      const models = [
+          {
+              name: 'Qwen3-VL-4B-Instruct-Q4_K_M.gguf',
+              url: 'https://huggingface.co/bartowski/Qwen_Qwen3-VL-4B-Instruct-GGUF/resolve/main/Qwen_Qwen3-VL-4B-Instruct-Q4_K_M.gguf'
+          },
+          {
+              name: 'mmproj-Qwen3VL-4B-Instruct-F16.gguf',
+              url: 'https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-4B-Instruct-F16.gguf'
+          }
+      ];
+
+      const downloadFile = (url: string, destPath: string, modelName: string): Promise<void> => {
+          return new Promise((resolve, reject) => {
+              const file = fs.createWriteStream(destPath);
+              
+              const request = (redirectUrl: string) => {
+                  https.get(redirectUrl, (response) => {
+                      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                          request(response.headers.location);
+                          return;
+                      }
+                      
+                      if (response.statusCode !== 200) {
+                          fs.unlink(destPath, () => {});
+                          reject(new Error(`HTTP ${response.statusCode}`));
+                          return;
+                      }
+                      
+                      const totalSize = parseInt(response.headers['content-length'] || '0', 10);
+                      let downloaded = 0;
+                      
+                      response.pipe(file);
+                      
+                      response.on('data', (chunk: Buffer) => {
+                          downloaded += chunk.length;
+                          const percent = totalSize ? Math.round((downloaded / totalSize) * 100) : 0;
+                          
+                          // Send progress to renderer
+                          BrowserWindow.getAllWindows().forEach(win => {
+                              win.webContents.send('model:download-progress', {
+                                  modelName,
+                                  percent,
+                                  downloadedMB: (downloaded / 1024 / 1024).toFixed(1),
+                                  totalMB: totalSize ? (totalSize / 1024 / 1024).toFixed(1) : '?'
+                              });
+                          });
+                      });
+                      
+                      file.on('finish', () => {
+                          file.close();
+                          resolve();
+                      });
+                  }).on('error', (err) => {
+                      fs.unlink(destPath, () => {});
+                      reject(err);
+                  });
+              };
+              
+              request(url);
+          });
+      };
+
+      try {
+          for (const model of models) {
+              const destPath = path.join(modelsDir, model.name);
+              
+              if (fs.existsSync(destPath)) {
+                  console.log(`[Model] ${model.name} already exists, skipping`);
+                  continue;
+              }
+              
+              console.log(`[Model] Downloading ${model.name}...`);
+              await downloadFile(model.url, destPath, model.name);
+              console.log(`[Model] ${model.name} downloaded`);
+          }
+          
+          return { success: true };
+      } catch (err: any) {
+          console.error('[Model] Download failed:', err);
+          return { success: false, error: err.message };
+      }
+  });
 }
 

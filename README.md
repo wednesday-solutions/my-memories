@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/icon.png" width="120" alt="Your Memories Logo">
+  <img src="resources/icon.png" width="120" alt="My Memories Logo">
 </p>
 
-<h1 align="center">Your Memories</h1>
+<h1 align="center">My Memories</h1>
 
 <p align="center">
   <strong>Your personal AI knowledge base—100% offline</strong>
@@ -21,7 +21,7 @@ You've had hundreds of conversations with AI assistants. Important insights are 
 
 ## The Solution
 
-**Your Memories** automatically captures your AI conversations and transforms them into a searchable, connected knowledge base—entirely on your device.
+**My Memories** automatically captures your AI conversations and transforms them into a searchable, connected knowledge base—entirely on your device.
 
 | Capture | Extract | Connect |
 |---------|---------|---------|
@@ -32,7 +32,7 @@ You've had hundreds of conversations with AI assistants. Important insights are 
 ## Features
 
 ### Multi-Source Capture
-Seamlessly imports from **ChatGPT**, **Claude Desktop**, **Claude (browser)**, **Gemini**, **Perplexity**, and **Grok**. Just chat as normal—Your Memories watches and captures in the background.
+Seamlessly imports from **ChatGPT**, **Claude Desktop**, **Claude (browser)**, **Gemini**, **Perplexity**, and **Grok**. Just chat as normal—My Memories watches and captures in the background.
 
 ### Intelligent Extraction
 Local LLMs extract memories, entities (people, concepts, technologies), and facts from every conversation. Creates rich, searchable context automatically.

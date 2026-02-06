@@ -4,7 +4,7 @@ import { StarsBackground } from './ui/stars-background';
 import { ShootingStars } from './ui/shooting-stars';
 import { BorderBeam } from './ui/border-beam';
 import { cn } from '@renderer/lib/utils';
-import { Shield, Eye, Check, X, Settings, RefreshCw } from 'lucide-react';
+import { Shield, Eye, Check, X, Settings, RefreshCw, Download, Cpu } from 'lucide-react';
 
 interface PermissionGateProps {
   children: React.ReactNode;
@@ -45,6 +45,10 @@ function TextGenerate({ words, className, delay = 0 }: { words: string; classNam
 export function PermissionGate({ children }: PermissionGateProps) {
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+  const [modelStatus, setModelStatus] = useState<{ downloaded: boolean; modelsDir: string } | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ modelName: string; percent: number; downloadedMB: string; totalMB: string } | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const checkPermissions = useCallback(async () => {
     try {
@@ -60,21 +64,43 @@ export function PermissionGate({ children }: PermissionGateProps) {
     }
   }, []);
 
+  const checkModelStatus = useCallback(async () => {
+    try {
+      const status = await window.api.checkModelStatus();
+      console.log('Model status:', status);
+      setModelStatus(status);
+      return status.downloaded;
+    } catch (e) {
+      console.error('Failed to check model status:', e);
+      return false;
+    }
+  }, []);
+
   // Initial check
   useEffect(() => {
     checkPermissions();
-  }, [checkPermissions]);
+    checkModelStatus();
+  }, [checkPermissions, checkModelStatus]);
 
   // Poll for permission changes when permissions are not granted
   useEffect(() => {
-    if (permissionStatus?.allGranted) return;
+    if (permissionStatus?.allGranted && modelStatus?.downloaded) return;
 
     const interval = setInterval(() => {
       checkPermissions();
+      checkModelStatus();
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [permissionStatus?.allGranted, checkPermissions]);
+  }, [permissionStatus?.allGranted, modelStatus?.downloaded, checkPermissions, checkModelStatus]);
+
+  // Subscribe to download progress
+  useEffect(() => {
+    const unsubscribe = window.api.onModelDownloadProgress((data) => {
+      setDownloadProgress(data);
+    });
+    return unsubscribe;
+  }, []);
 
   const handleOpenAccessibilitySettings = async () => {
     try {
@@ -92,9 +118,31 @@ export function PermissionGate({ children }: PermissionGateProps) {
     }
   };
 
+  const handleDownloadModel = async () => {
+    setIsDownloading(true);
+    setDownloadError(null);
+    setDownloadProgress(null);
+
+    try {
+      const result = await window.api.downloadModels();
+      if (result.success) {
+        await checkModelStatus();
+      } else {
+        setDownloadError(result.error || 'Download failed');
+      }
+    } catch (e: any) {
+      console.error('Failed to download model:', e);
+      setDownloadError(e.message || 'Download failed');
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    }
+  };
+
   const handleRefresh = () => {
     setIsChecking(true);
     checkPermissions();
+    checkModelStatus();
   };
 
   // Loading state
@@ -115,20 +163,20 @@ export function PermissionGate({ children }: PermissionGateProps) {
     );
   }
 
-  // Permissions granted - render children with transition
-  if (permissionStatus?.allGranted) {
+  // Everything granted - render children
+  if (permissionStatus?.allGranted && modelStatus?.downloaded) {
     return (
       children
     );
   }
 
-  // Permissions not granted - show permission request UI
+  // Setup required - show permission/model request UI
   return (
     <div className="h-screen w-screen bg-neutral-950 fixed inset-0 overflow-hidden">
       <StarsBackground className="absolute inset-0 z-0" />
       <ShootingStars className="absolute inset-0 z-0" />
 
-      <div className="relative z-10 h-full w-full flex items-center justify-center p-8">
+      <div className="relative z-10 h-full w-full flex flex-col items-center overflow-y-auto pt-16 pb-8 px-8">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -150,7 +198,7 @@ export function PermissionGate({ children }: PermissionGateProps) {
           {/* Title with text generate effect */}
           <div className="text-center mb-3">
             <TextGenerate
-              words="Permissions Required"
+              words="Setup Required"
               className="text-4xl font-light text-white tracking-tight"
               delay={0.2}
             />
@@ -163,10 +211,10 @@ export function PermissionGate({ children }: PermissionGateProps) {
             transition={{ delay: 0.5, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="text-center text-neutral-500 text-sm mb-10 max-w-xs mx-auto leading-relaxed"
           >
-            Grant access to capture and understand your AI conversations. Everything stays on your device.
+            Grant permissions and download the AI model to get started. Everything runs locally on your device.
           </motion.p>
 
-          {/* Permission Cards */}
+          {/* Permission & Model Cards */}
           <div className="space-y-3 mb-8">
             <PermissionCard
               title="Accessibility"
@@ -185,13 +233,23 @@ export function PermissionGate({ children }: PermissionGateProps) {
               onOpenSettings={handleOpenScreenRecordingSettings}
               delay={0.7}
             />
+
+            {/* AI Model Card */}
+            <ModelCard
+              downloaded={modelStatus?.downloaded ?? false}
+              isDownloading={isDownloading}
+              downloadProgress={downloadProgress}
+              downloadError={downloadError}
+              onDownload={handleDownloadModel}
+              delay={0.8}
+            />
           </div>
 
           {/* Instructions */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ delay: 0.9, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="bg-neutral-900/40 border border-neutral-800/60 rounded-xl p-4 mb-6"
           >
             <div className="flex items-center gap-2 mb-3">
@@ -201,9 +259,10 @@ export function PermissionGate({ children }: PermissionGateProps) {
               </span>
             </div>
             <div className="space-y-2 text-sm text-neutral-500">
-              <p>1. Click <span className="text-neutral-400">Open Settings</span></p>
+              <p>1. Click <span className="text-neutral-400">Open Settings</span> for each permission</p>
               <p>2. Find <span className="text-neutral-400">My Memories</span> in the list</p>
               <p>3. Toggle the switch to enable</p>
+              <p>4. Click <span className="text-neutral-400">Download Model</span> to get the AI</p>
             </div>
           </motion.div>
 
@@ -211,7 +270,7 @@ export function PermissionGate({ children }: PermissionGateProps) {
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ delay: 1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
             onClick={handleRefresh}
             disabled={isChecking}
             whileHover={{ scale: 1.01 }}
@@ -232,7 +291,7 @@ export function PermissionGate({ children }: PermissionGateProps) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
+            transition={{ delay: 1.1 }}
             className="flex items-center justify-center gap-2 mt-4"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-neutral-700 animate-pulse" />
@@ -322,6 +381,115 @@ function PermissionCard({ title, description, icon, granted, onOpenSettings, del
               )}
             >
               Open Settings
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+interface ModelCardProps {
+  downloaded: boolean;
+  isDownloading: boolean;
+  downloadProgress: { modelName: string; percent: number; downloadedMB: string; totalMB: string } | null;
+  downloadError: string | null;
+  onDownload: () => void;
+  delay?: number;
+}
+
+function ModelCard({ downloaded, isDownloading, downloadProgress, downloadError, onDownload, delay = 0 }: ModelCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+      whileHover={{ scale: 1.01 }}
+      className={cn(
+        "relative rounded-xl border p-4 transition-all duration-300 overflow-hidden",
+        downloaded
+          ? "bg-neutral-900/60 border-neutral-700"
+          : "bg-neutral-900/40 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900/60"
+      )}
+    >
+      {downloaded && (
+        <BorderBeam
+          size={200}
+          duration={10}
+          borderWidth={1.5}
+        />
+      )}
+
+      <div className="flex items-center gap-4">
+        {/* Icon */}
+        <div className={cn(
+          "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border transition-all duration-300",
+          downloaded
+            ? "bg-neutral-800 border-neutral-700 text-neutral-300"
+            : "bg-neutral-800/60 border-neutral-800 text-neutral-500"
+        )}>
+          <Cpu className="w-5 h-5" />
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <h3 className="font-medium text-white text-sm">AI Model</h3>
+            <div className={cn(
+              "w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300",
+              downloaded ? "bg-neutral-700" : "bg-neutral-800/60"
+            )}>
+              {downloaded ? (
+                <Check className="w-2.5 h-2.5 text-neutral-300" />
+              ) : (
+                <X className="w-2.5 h-2.5 text-neutral-600" />
+              )}
+            </div>
+          </div>
+
+          {isDownloading && downloadProgress ? (
+            <div className="space-y-1">
+              <p className="text-xs text-neutral-400">
+                {downloadProgress.modelName.split('-')[0]}... {downloadProgress.percent}%
+              </p>
+              <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-neutral-500 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${downloadProgress.percent}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+              <p className="text-[10px] text-neutral-600">
+                {downloadProgress.downloadedMB} / {downloadProgress.totalMB} MB
+              </p>
+            </div>
+          ) : downloadError ? (
+            <p className="text-xs text-red-400">{downloadError}</p>
+          ) : (
+            <p className="text-xs text-neutral-500">Qwen3-VL-4B (local processing)</p>
+          )}
+        </div>
+
+        {/* Status/Actions */}
+        <div className="flex-shrink-0">
+          {downloaded ? (
+            <span className="text-[10px] text-neutral-500 uppercase tracking-widest">
+              Ready
+            </span>
+          ) : (
+            <button
+              onClick={onDownload}
+              disabled={isDownloading}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5",
+                "bg-neutral-800 border border-neutral-700 text-neutral-300",
+                "hover:bg-neutral-700 hover:text-white",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <Download className={cn("w-3 h-3", isDownloading && "animate-pulse")} />
+              {isDownloading ? 'Downloading...' : 'Download'}
             </button>
           )}
         </div>
