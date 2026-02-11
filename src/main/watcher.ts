@@ -221,8 +221,8 @@ export class Watcher {
       try {
           const parsed = new URL(withScheme);
           const pathname = parsed.pathname.toLowerCase();
-          // gemini.google.com/app/* or home are chat pages
-          return pathname.startsWith('/app') || pathname === '/' || pathname === '';
+          // gemini.google.com/app/* or gemini.google.com/u/N/app/* (multi-account) or home
+          return /\/(app)(\/|$)/.test(pathname) || pathname === '/' || pathname === '';
       } catch {
           return false;
       }

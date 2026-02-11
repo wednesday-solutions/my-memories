@@ -17,7 +17,7 @@
 
 ## The Problem
 
-You've had hundreds of conversations with AI assistants. Important insights are scattered across ChatGPT, Claude, Gemini, Perplexity, and Grok. Finding "that one conversation" where you solved a problem takes forever. And syncing to the cloud means giving up control of your data.
+You've had hundreds of conversations with AI assistants. Important insights are scattered across ChatGPT, Claude, Gemini, and more. Finding "that one conversation" where you solved a problem takes forever. And syncing to the cloud means giving up control of your data.
 
 ## The Solution
 
@@ -32,7 +32,9 @@ You've had hundreds of conversations with AI assistants. Important insights are 
 ## Features
 
 ### Multi-Source Capture
-Seamlessly imports from **ChatGPT**, **Claude Desktop**, **Claude (browser)**, **Gemini**, **Perplexity**, and **Grok**. Just chat as normal—My Memories watches and captures in the background.
+Seamlessly imports from **ChatGPT**, **Claude Desktop**, **Claude (browser)**, and **Gemini**. Just chat as normal—My Memories watches and captures in the background.
+
+> **Coming soon:** Support for **Perplexity** and **Grok** is planned but not yet available.
 
 ### Intelligent Extraction
 Local LLMs extract memories, entities (people, concepts, technologies), and facts from every conversation. Creates rich, searchable context automatically.

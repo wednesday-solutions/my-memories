@@ -1,8 +1,10 @@
 import { motion } from 'motion/react';
 import { cn } from '@renderer/lib/utils';
 
-export const SOURCES = ['All', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'ChatGPT'] as const;
+export const SOURCES = ['All', 'Claude', 'Gemini', 'ChatGPT'] as const;
 export type Source = (typeof SOURCES)[number];
+
+const COMING_SOON = ['Perplexity', 'Grok'] as const;
 
 interface SourceFilterTabsProps {
     activeSource: Source;
@@ -33,6 +35,16 @@ export function SourceFilterTabs({ activeSource, onSourceChange, className }: So
                     )}
                     <span className="relative z-10">{source}</span>
                 </button>
+            ))}
+            {COMING_SOON.map(source => (
+                <span
+                    key={source}
+                    className="relative px-4 py-2 rounded-full text-sm font-medium text-neutral-600 cursor-not-allowed"
+                    title="Coming soon"
+                >
+                    {source}
+                    <span className="ml-1 text-[10px] align-super text-neutral-600">soon</span>
+                </span>
             ))}
         </div>
     );
