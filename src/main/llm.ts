@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from "child_process";
+import { spawn, execSync, ChildProcess } from "child_process";
 import path from "path";
 import { app } from "electron";
 import * as fs from "fs";
@@ -77,6 +77,18 @@ export class LLMService {
     console.log(`[LLMService] Starting llama-server from ${serverPath}`);
     console.log(`[LLMService] Model: ${this.modelPath}`);
 
+    // Strip macOS quarantine attributes on production builds (downloaded DMGs get quarantined)
+    if (app.isPackaged && process.platform === 'darwin') {
+        try {
+            const binDir = path.dirname(serverPath);
+            execSync(`xattr -cr "${binDir}"`, { stdio: 'ignore' });
+            execSync(`chmod +x "${serverPath}"`, { stdio: 'ignore' });
+            console.log('[LLMService] Cleared quarantine attributes from bin directory');
+        } catch (e) {
+            console.warn('[LLMService] Could not clear quarantine attributes:', e);
+        }
+    }
+
     const binDir = path.dirname(serverPath);
 
     this.server = spawn(serverPath, [
@@ -86,8 +98,7 @@ export class LLMService {
       "--host", "127.0.0.1",
       "--image-min-tokens", "2048",
       "-c", "32768",
-      "-ngl", "99",
-      "--flash-attn", "on"
+      "-ngl", "99"
     ], {
       env: {
         ...process.env,

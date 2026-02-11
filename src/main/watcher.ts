@@ -10,9 +10,11 @@ import { parseClaudeDesktopOutput, parseClaudeWebOutput, parseChatGPTOutput, par
 
 export class Watcher {
   private static child: ChildProcess | null = null;
+  private static intentionalStop = false;
 
   static start() {
     if (this.child) return;
+    this.intentionalStop = false;
 
     const isDev = !app.isPackaged;
     // In dev, usually compiled to electron/accessibility/watcher
@@ -39,7 +41,31 @@ export class Watcher {
         return;
     }
 
+    // Strip macOS quarantine attributes on production builds (downloaded DMGs get quarantined)
+    if (!isDev && process.platform === 'darwin') {
+        try {
+            const { execSync } = require('child_process');
+            execSync(`xattr -cr "${binPath}"`, { stdio: 'ignore' });
+            execSync(`chmod +x "${binPath}"`, { stdio: 'ignore' });
+            console.log('[Watcher] Cleared quarantine attributes from watcher binary');
+        } catch (e) {
+            console.warn('[Watcher] Could not clear quarantine attributes:', e);
+        }
+    }
+
     this.child = spawn(binPath, []);
+
+    // Auto-restart watcher if it crashes (but not on intentional stop)
+    this.child.on('close', (code) => {
+        console.warn(`[Watcher] Process exited with code ${code}`);
+        this.child = null;
+        if (!this.intentionalStop) {
+            setTimeout(() => {
+                console.log('[Watcher] Restarting...');
+                this.start();
+            }, 5000);
+        }
+    });
 
     this.child.stderr?.on('data', (data) => {
       console.error("Watcher Error:", data.toString());
@@ -54,14 +80,14 @@ export class Watcher {
       try {
         const str = data.toString().trim();
         if (!str) return;
-        
+
         // Handle potentially multiple JSON objects in one chunk
         const lines = str.split('\n');
         for (const line of lines) {
              try {
                 const json = JSON.parse(line);
                 console.log("Watcher JSON received:", JSON.stringify(json).slice(0, 200)); // Debug log
-                
+
                 // Broadcast to all windows
                 BrowserWindow.getAllWindows().forEach(win => {
                     win.webContents.send('watcher:data', json);
@@ -69,7 +95,9 @@ export class Watcher {
 
                 // VISION TRIGGER
                 if (json.appName) {
-                    this.handleVisionCapture(json.appName, json.title);
+                    this.handleVisionCapture(json.appName, json.title).catch(err => {
+                        console.error('[Watcher] Vision capture failed:', err);
+                    });
                 }
 
              } catch (e) {
@@ -585,6 +613,7 @@ export class Watcher {
   }
 
   static stop() {
+    this.intentionalStop = true;
     if (this.child) {
       this.child.kill();
       this.child = null;
