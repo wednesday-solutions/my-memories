@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { getDB, getChatSessions, upsertChatSummary, getMemoriesForSession, getMemoryRecordsForSession, getMasterMemory, updateMasterMemory, getAllChatSummaries, upsertEntity, addEntityFact, updateEntitySummary, getEntities, getEntityDetails, upsertEntitySession, rebuildEntityEdgesForSession, getEntityGraph, rebuildEntityEdgesForAllSessions, deleteEntity, deleteMemory, getEntitiesForSession, getDashboardStats, getUserProfile, saveUserProfile, UserProfile, createRagConversation, getRagConversations, getRagConversation, deleteRagConversation, addRagMessage, getRagMessages, updateRagConversationTitle, getSettings, saveSetting, getSetting } from './database';
 import { embeddings } from './embeddings';
 import { getPermissionStatus, requestAccessibilityPermission, requestScreenRecordingPermission, openAccessibilitySettings, openScreenRecordingSettings } from './permissions';
+import { getPrompt, getAllPromptDefs, resetPrompt, getPromptTemplate } from './prompts';
 // import { llm } from './llm'; // Moved to dynamic import to support ESM
 
 // Incrementally update master memory with a new conversation summary
@@ -14,75 +15,11 @@ async function updateMasterMemoryIncremental(newSummary: string): Promise<string
     // If no existing master memory, create initial one from just this summary
     if (!currentMaster || currentMaster.trim().length === 0) {
         console.log('[IPC] No existing master memory, creating from new summary only');
-        const prompt = `You are creating a comprehensive MASTER MEMORY — a detailed knowledge base about a user.
-
-Create a thorough, well-organized reference document from this conversation summary. Be DETAILED and COMPREHENSIVE - this document can be up to 5000 words. Include every relevant piece of information.
-
-## Required Sections (include all that have content):
-
-### About the User
-- Full professional background, role, title, company
-- Technical skills and expertise levels
-- Years of experience in different areas
-- Education or certifications mentioned
-- Location, timezone, working hours
-
-### Projects & Work
-- All projects mentioned with full details (names, descriptions, tech stacks, status)
-- Project goals, timelines, constraints
-- Team structure and collaborators
-- Past projects and their outcomes
-
-### Technical Environment
-- Operating system, hardware, development machines
-- IDEs, editors, and tools used
-- Languages and frameworks with proficiency levels
-- Databases, cloud services, infrastructure
-- Development workflow and practices
-
-### Architectural Preferences
-- Design patterns preferred
-- Code organization and structure
-- API design preferences
-- Testing approaches
-- Performance considerations
-
-### Stated Preferences & Opinions
-- Explicitly stated likes and dislikes
-- Strong opinions on technologies, practices, or approaches
-- Communication style preferences
-- Work style (collaborative vs independent, etc.)
-
-### Key Decisions Made
-- Technical decisions with rationale
-- Tool or framework choices
-- Architectural decisions
-- Process decisions
-
-### Important Relationships
-- People mentioned (colleagues, clients, managers)
-- Organizations and companies referenced
-- Communities or groups involved with
-
-### Recurring Themes & Interests
-- Topics frequently discussed
-- Areas of active learning
-- Long-term goals and aspirations
-
-Guidelines:
-- Write in third person ("The user prefers...", "They work on...")
-- Include ALL specific details: names, versions, exact preferences
-- Preserve nuance and context
-- Be comprehensive, not brief
-
-Conversation Summary:
-${newSummary}
-
-Master Memory:`;
+        const prompt = getPrompt('masterMemory.initial', { SUMMARY: newSummary });
 
         try {
             const { llm } = await import('./llm');
-            const initialMaster = await llm.chat(prompt, [], 180000); // 3 min timeout
+            const initialMaster = await llm.chat(prompt, [], 600000, 4096);
             updateMasterMemory(initialMaster);
             console.log('[IPC] Initial master memory created');
             return initialMaster;
@@ -93,37 +30,11 @@ Master Memory:`;
     }
 
     // Incremental update: merge new summary with existing master (no truncation - allow growth)
-    const prompt = `You are updating a comprehensive MASTER MEMORY — a detailed knowledge base about a user.
-
-This document should be DETAILED and COMPREHENSIVE, up to 5000 words. DO NOT summarize or shorten - preserve all existing information and ADD new details.
-
-CURRENT MASTER MEMORY:
-${currentMaster}
-
----
-
-NEW CONVERSATION SUMMARY to integrate:
-${newSummary}
-
----
-
-YOUR TASK: Produce an UPDATED master memory that integrates ALL new information.
-
-Rules:
-1. PRESERVE all existing information - do not remove or shorten anything
-2. ADD new facts, details, and context from the new summary
-3. MERGE related information into appropriate sections
-4. UPDATE information only if explicitly contradicted by newer info
-5. EXPAND sections with new details rather than replacing
-6. Maintain all the detailed sections (About User, Projects, Technical Environment, etc.)
-7. The result should be MORE detailed than the input, not less
-8. Write in third person
-
-Updated Master Memory:`;
+    const prompt = getPrompt('masterMemory.incremental', { CURRENT_MASTER: currentMaster, NEW_SUMMARY: newSummary });
 
     try {
         const { llm } = await import('./llm');
-        const updatedMaster = await llm.chat(prompt, [], 180000); // 3 min timeout
+        const updatedMaster = await llm.chat(prompt, [], 600000, 4096);
         updateMasterMemory(updatedMaster);
         console.log('[IPC] Master memory updated incrementally');
         return updatedMaster;
@@ -133,83 +44,89 @@ Updated Master Memory:`;
     }
 }
 
-// Full regeneration - processes summaries in batches
-// Used when explicitly requested or when starting from scratch
+// Full regeneration using map-reduce:
+// Phase 1 (map): Split summaries into chunks, generate a partial summary for each
+// Phase 2 (reduce): Merge all partial summaries into the final master memory
+// This avoids the growing-prompt problem and minimizes LLM calls
 async function regenerateMasterMemoryFull(): Promise<string | null> {
     const summaries = getAllChatSummaries();
+    console.log(`[IPC] regenerateMasterMemoryFull called, found ${summaries.length} summaries`);
+
     if (summaries.length === 0) {
+        console.log('[IPC] No summaries found — clearing master memory');
         updateMasterMemory('');
         return null;
     }
 
-    console.log(`[IPC] Starting full master memory regeneration from ${summaries.length} summaries...`);
-
     const { llm } = await import('./llm');
 
-    // Process in batches of 3 for detailed processing
-    const BATCH_SIZE = 3;
-    let currentMaster = '';
+    const sendProgress = (current: number, total: number) => {
+        BrowserWindow.getAllWindows().forEach(win => {
+            win.webContents.send('master-memory:progress', { current, total });
+        });
+    };
 
-    for (let i = 0; i < summaries.length; i += BATCH_SIZE) {
-        const batch = summaries.slice(i, i + BATCH_SIZE);
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(summaries.length / BATCH_SIZE);
+    // If few enough summaries, do it in one shot
+    const allText = summaries.map((s, i) => `[Session ${i + 1}]\n${s.summary}`).join('\n\n---\n\n');
+    if (allText.length < 60000) {
+        console.log(`[IPC] All summaries fit in one prompt (${allText.length} chars), single-shot`);
+        sendProgress(0, 1);
+        const prompt = getPrompt('masterMemory.batchFirst', { BATCH_TEXT: allText });
+        const master = await llm.chat(prompt, [], 600000, 4096);
+        updateMasterMemory(master);
+        sendProgress(1, 1);
+        console.log(`[IPC] Master memory regenerated single-shot (${master.length} chars)`);
+        return master;
+    }
 
-        console.log(`[IPC] Processing batch ${batchNum}/${totalBatches}...`);
+    // Map-reduce for large sets
+    // Phase 1: split into chunks of ~50K chars each, generate partial summaries
+    const CHUNK_MAX_CHARS = 50000;
+    const chunks: string[][] = [[]];
+    let currentChunkSize = 0;
 
-        const batchText = batch.map((s, j) => `[Session ${i + j + 1}]\n${s.summary}`).join('\n\n---\n\n');
+    for (const s of summaries) {
+        if (currentChunkSize + s.summary.length > CHUNK_MAX_CHARS && chunks[chunks.length - 1].length > 0) {
+            chunks.push([]);
+            currentChunkSize = 0;
+        }
+        chunks[chunks.length - 1].push(s.summary);
+        currentChunkSize += s.summary.length;
+    }
 
-        const isFirstBatch = i === 0;
+    const totalSteps = chunks.length + 1; // chunks + 1 merge step
+    console.log(`[IPC] Map-reduce: ${chunks.length} chunks + 1 merge = ${totalSteps} steps`);
+    sendProgress(0, totalSteps);
 
-        const prompt = isFirstBatch
-            ? `You are building a comprehensive MASTER MEMORY from conversation summaries. This should be DETAILED - up to 5000 words.
+    const partials: string[] = [];
 
-Include ALL these sections with full details:
-- About the User (background, skills, role, location)
-- Projects & Work (all projects with details, tech stacks, status)
-- Technical Environment (OS, tools, languages, frameworks)
-- Architectural Preferences (patterns, practices, approaches)
-- Stated Preferences & Opinions (likes, dislikes, strong opinions)
-- Key Decisions Made (technical and process decisions)
-- Important Relationships (people, organizations)
-- Recurring Themes & Interests
-
-Write in third person. Include ALL specific details - names, versions, exact preferences. Be comprehensive.
-
-Conversation Summaries:
-${batchText}
-
-Master Memory:`
-            : `You are EXPANDING a master memory with additional conversation summaries.
-
-This document should be COMPREHENSIVE - up to 5000 words. DO NOT summarize or shorten.
-
-CURRENT MASTER MEMORY:
-${currentMaster}
-
----
-
-ADDITIONAL SUMMARIES (batch ${batchNum}):
-${batchText}
-
----
-
-EXPAND the master memory with ALL new information. PRESERVE everything existing. ADD new details. The result should be MORE detailed, not less. Write in third person.
-
-Expanded Master Memory:`;
+    for (let i = 0; i < chunks.length; i++) {
+        const batchText = chunks[i].map((s, j) => `[Session ${j + 1}]\n${s}`).join('\n\n---\n\n');
+        const prompt = getPrompt('masterMemory.batchFirst', { BATCH_TEXT: batchText });
+        console.log(`[IPC] Phase 1 chunk ${i + 1}/${chunks.length}: ${batchText.length} chars input, prompt ${prompt.length} chars`);
 
         try {
-            currentMaster = await llm.chat(prompt, [], 240000); // 4 min timeout per batch
+            const partial = await llm.chat(prompt, [], 600000, 2048);
+            partials.push(partial);
+            console.log(`[IPC] Chunk ${i + 1} done: ${partial.length} chars output`);
+            sendProgress(i + 1, totalSteps);
         } catch (e) {
-            console.error(`[IPC] Batch ${batchNum} failed:`, e);
-            if (currentMaster) break; // Use what we have
-            throw e; // Fail if no progress
+            console.error(`[IPC] Chunk ${i + 1} FAILED:`, e);
+            throw e;
         }
     }
 
-    updateMasterMemory(currentMaster);
-    console.log(`[IPC] Master memory regenerated from ${summaries.length} summaries`);
-    return currentMaster;
+    // Phase 2: merge all partials into final master memory
+    console.log(`[IPC] Phase 2: merging ${partials.length} partial summaries...`);
+    const mergeInput = partials.map((p, i) => `[Part ${i + 1}]\n${p}`).join('\n\n---\n\n');
+    const mergePrompt = getPrompt('masterMemory.merge', { PARTIAL_SUMMARIES: mergeInput });
+    console.log(`[IPC] Merge prompt: ${mergePrompt.length} chars`);
+
+    const finalMaster = await llm.chat(mergePrompt, [], 600000, 4096);
+    updateMasterMemory(finalMaster);
+    sendProgress(totalSteps, totalSteps);
+    console.log(`[IPC] Master memory regenerated via map-reduce (${finalMaster.length} chars)`);
+    return finalMaster;
 }
 
 // Main entry point - full regeneration
@@ -260,6 +177,7 @@ function isTrivialMessage(text: string): boolean {
 
 async function insertMemoryRecord(params: {
     content: string;
+    name?: string | null;
     rawText?: string | null;
     sourceApp?: string | null;
     sessionId?: string | null;
@@ -287,9 +205,10 @@ async function insertMemoryRecord(params: {
         console.error('Failed to generate embedding for memory record:', e);
     }
 
-    const stmt = db.prepare('INSERT INTO memories (content, raw_text, source_app, session_id, embedding, message_id) VALUES (?, ?, ?, ?, ?, ?)');
+    const stmt = db.prepare('INSERT INTO memories (content, name, raw_text, source_app, session_id, embedding, message_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
     const info = stmt.run(
         content,
+        params.name || null,
         params.rawText || null,
         params.sourceApp || null,
         params.sessionId || null,
@@ -324,79 +243,8 @@ export async function evaluateAndStoreMemoryForMessage(params: {
 
     // Get strictness setting
     const strictness = getSetting<'lenient' | 'balanced' | 'strict'>('memoryStrictness', 'balanced');
-    
-    // Build strictness-specific prompt
-    let storeInstructions = '';
-    let dontStoreInstructions = '';
-    
-    if (strictness === 'lenient') {
-        storeInstructions = `Store information that could be useful in future conversations, including:
-- Personal preferences, facts, or profile information
-- Projects, specs, requirements, or technical choices
-- Decisions, commitments, or agreements
-- Instructions, constraints, or guidelines
-- Plans, schedules, goals, or deadlines
-- Facts about entities, tools, technologies mentioned
-- General knowledge shared that might be referenced again`;
-        
-        dontStoreInstructions = `Do NOT store:
-- Simple greetings or pleasantries
-- Generic filler phrases`;
-    } else if (strictness === 'strict') {
-        storeInstructions = `Store ONLY high-value, explicitly stated information:
-- Direct personal preferences the user explicitly stated
-- Major decisions or commitments clearly made
-- Critical project requirements explicitly mentioned
-- Core facts about important entities central to the user's work`;
-        
-        dontStoreInstructions = `Do NOT store:
-- Greetings, small talk, or pleasantries
-- Troubleshooting steps or temporary solutions
-- Generic statements or common knowledge
-- Technical details that are easily searchable
-- Speculation, suggestions, or hypotheticals
-- Anything not explicitly and directly stated by the user
-- Inferred or implied information`;
-    } else {
-        // balanced (default) — tightened
-        storeInstructions = `Store ONLY explicitly stated, durable, high-signal information such as:
-- Personal preferences the user directly and clearly stated ("I prefer X", "I always use Y")
-- Concrete project names, product names, or specific technical architecture decisions
-- Firm decisions or commitments the user explicitly made ("We decided to go with X", "I chose Y")
-- Specific constraints, requirements, or deadlines stated as facts
-- Long-term goals or plans the user described in their own words`;
 
-        dontStoreInstructions = `Do NOT store:
-- Greetings, small talk, pleasantries, or filler
-- Code snippets, error messages, stack traces, or log output
-- Questions the user asked (unless the question itself reveals a strong preference)
-- Assistant explanations, suggestions, or recommendations (unless the user confirmed them as a decision)
-- One-off troubleshooting steps, debugging attempts, or ephemeral details
-- Generic or common-knowledge statements ("React is a library", "APIs use HTTP")
-- Vague or implied preferences ("seems like they like X")
-- Redundant facts already implied by the message itself
-- Speculation, hypotheticals, or unverified claims
-- Anything that won't clearly matter in future conversations`;
-    }
-
-    const prompt = `You are a ${strictness === 'strict' ? 'very strict' : strictness === 'lenient' ? 'inclusive' : 'balanced'} memory filter. Decide if the following single message should be saved as LONG-TERM memory that a user would want in future chats.
-
-${storeInstructions}
-
-${dontStoreInstructions}
-
-If the role is 'assistant', store ONLY if it repeats a verified user fact or a decision the user made.
-If unsure, set store to ${strictness === 'lenient' ? 'true' : 'false'}.
-
-Return JSON ONLY with this shape:
-{
-    "store": boolean,
-    "memory": "short standalone statement suitable for future retrieval"
-}
-
-Role: ${role}
-Message: ${text}
-JSON:`;
+    const prompt = getPrompt(`memoryFilter.${strictness}`, { ROLE: role, MESSAGE: text });
 
     // Minimum content length filter: skip very short messages
     if (role === 'user' && text.length < 30) return;
@@ -405,9 +253,10 @@ JSON:`;
     try {
         const { llm } = await import('./llm');
         const response = await llm.chat(prompt);
-        const parsed = safeParseJson<{ store: boolean; memory?: string }>(response, { store: false });
+        const parsed = safeParseJson<{ store: boolean; name?: string; memory?: string }>(response, { store: false });
         if (!parsed.store) return;
         const memoryText = (parsed.memory || '').trim();
+        const memoryName = (parsed.name || '').trim() || null;
         if (!memoryText) return;
         if (memoryText.split(/\s+/).length < 4) return;
         if (memoryText.length > 280) return;
@@ -434,6 +283,7 @@ JSON:`;
 
         await insertMemoryRecord({
             content: memoryText,
+            name: memoryName,
             rawText: text,
             sourceApp: params.appName,
             sessionId: params.sessionId,
@@ -453,56 +303,7 @@ async function extractEntitiesForSession(sessionId: string): Promise<void> {
 
         const memoryText = memories.map((m: any) => `- ${m.content}`).join('\n');
         
-        // Build strictness-specific rules
-        let rules = '';
-        if (strictness === 'lenient') {
-            rules = `Rules:
-- Include all entities mentioned in the memory statements.
-- Include people, organizations, products, places, projects, technologies, tools, and concepts.
-- Be inclusive - if an entity is mentioned, it's probably worth tracking.
-- Facts should be concise and verifiable.
-- Return {\"entities\": []} only if there are no discernible entities at all.`;
-        } else if (strictness === 'strict') {
-            rules = `Rules:
-- Only include entities that are CENTRAL to the user's work or life.
-- Exclude generic tools, common technologies, libraries, or frameworks unless the user has a specific relationship to them.
-- Exclude one-time mentions or incidental references.
-- Only include entities the user has explicitly discussed in detail or shown clear importance.
-- Facts must be specific, verified, and directly from the memory statements.
-- When in doubt, exclude the entity.
-- Return {\"entities\": []} if no entities are clearly significant.`;
-        } else {
-            // balanced (default) — tightened
-            rules = `Rules:
-- Only include entities explicitly and repeatedly mentioned or clearly central to the user's work.
-- Include ONLY entities the user has a specific, ongoing relationship with (their projects, their tools, people they work with, organizations they belong to).
-- Exclude passing mentions, one-off references, generic examples, or entities mentioned only in assistant advice.
-- Exclude generic or common single-word entities like "API", "database", "server", "frontend", "backend", "app", "website", "code".
-- Exclude entities used only as illustrative examples or in generic advice.
-- Entity names must be at least 3 characters long.
-- Facts must be concise, specific, durable, and directly from the memory statements — no inferred facts.
-- If no entities clearly meet the bar, return {\"entities\": []}.`;
-        }
-        
-        const prompt = `You are extracting entities from long-term memory statements. ${strictness === 'strict' ? 'Be very selective - only keep high-value entities.' : strictness === 'lenient' ? 'Be inclusive - capture entities that might be useful later.' : 'Only keep entities worth remembering for future chats.'}
-
-Return JSON only with this shape:
-{
-    "entities": [
-        {
-            "name": "string",
-            "type": "Person | Organization | Product | Place | Object | Project | Concept | Event | Other",
-            "facts": ["short factual statements about the entity"]
-        }
-    ]
-}
-
-${rules}
-
-Memory statements:
-${memoryText}
-
-JSON:`;
+        const prompt = getPrompt(`entityExtraction.${strictness}`, { MEMORY_TEXT: memoryText });
 
     try {
         const { llm } = await import('./llm');
@@ -560,18 +361,12 @@ JSON:`;
             const details = getEntityDetails(entityId) as { entity?: { summary?: string } } | null;
             const existingSummary = details?.entity?.summary || '';
 
-            const summaryPrompt = `You are updating an entity profile summary.
-
-Entity: ${name}
-Type: ${type}
-
-Existing summary:
-${existingSummary || '(none)'}
-
-New facts:
-- ${newFacts.join('\n- ')}
-
-Write a concise, well-structured summary. Include only verified facts. Do not add speculation. Output plain text only.`;
+            const summaryPrompt = getPrompt('entitySummary', {
+                NAME: name,
+                TYPE: type,
+                EXISTING_SUMMARY: existingSummary || '(none)',
+                NEW_FACTS: '- ' + newFacts.join('\n- '),
+            });
 
             try {
                 const updatedSummary = await llm.chat(summaryPrompt);
@@ -597,58 +392,26 @@ export async function summarizeSession(sessionId: string): Promise<string | null
     if (!memories || memories.length === 0) return null;
 
     const conversationText = memories.map((m: any) => `[${m.role || 'unknown'}]: ${m.content}`).join('\n');
-    const prompt = `You are extracting a user profile summary from a conversation. This summary will be aggregated with others to build a master memory of who this user is.
-
-FOCUS ON THE USER, NOT THE ASSISTANT. Extract information that reveals:
-
-## User Identity & Context
-- What is the user working on? (specific project names, company, role)
-- What is their technical background/skill level?
-- What domain or industry are they in?
-
-## User Preferences & Working Style
-- How do they prefer to work? (tools, frameworks, languages)
-- What coding style or conventions do they follow?
-- What do they explicitly like or dislike?
-
-## Decisions & Commitments
-- What specific choices did the user make in this conversation?
-- What approaches did they commit to?
-- What did they reject or decide against?
-
-## Problems & Goals
-- What problems were they trying to solve?
-- What are their stated goals or objectives?
-- What constraints or requirements do they have?
-
-## Key Relationships
-- People mentioned (colleagues, clients, team members)
-- Projects and their status
-- Technologies and tools they actively use (not just discussed)
-
-IMPORTANT GUIDELINES:
-- Write from a third-person perspective about "the user"
-- Include ONLY information that came from or was confirmed by the user
-- Skip generic assistant advice, explanations, or code examples
-- Skip anything the user merely asked about but didn't adopt
-- Focus on durable facts, not transient details
-- Be concise but specific - names, versions, concrete details matter
-
-Conversation:
-${conversationText}
-
-User Profile Summary:`;
+    const prompt = getPrompt('sessionSummary', { CONVERSATION_TEXT: conversationText });
 
     try {
         const { llm } = await import('./llm');
-        const summary = await llm.chat(prompt);
+        const summary = await llm.chat(prompt, [], 120000, 2048);
         upsertChatSummary(sessionId, summary);
 
-        // Extract and update entity memory
-        extractEntitiesForSession(sessionId);
+        // Extract and update entity memory (non-blocking — don't fail the summary if these error)
+        try {
+            await extractEntitiesForSession(sessionId);
+        } catch (entityErr) {
+            console.error('[IPC] Entity extraction failed (non-fatal):', entityErr);
+        }
 
-        // Incrementally update master memory with the new summary (context-efficient)
-        updateMasterMemoryIncremental(summary);
+        // Incrementally update master memory with the new summary
+        try {
+            await updateMasterMemoryIncremental(summary);
+        } catch (masterErr) {
+            console.error('[IPC] Master memory incremental update failed (non-fatal):', masterErr);
+        }
 
         return summary;
     } catch (e) {
@@ -915,18 +678,11 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
         historyBlock = `\nCONVERSATION HISTORY:\n${historyLines}\n`;
     }
 
-    const prompt = `You are a helpful assistant that answers using ONLY the provided context from the user's memories, conversations, summaries, and entities.
-Prefer specific evidence from messages, summaries, entities, and memories over the master memory. Use the master memory only as supplemental context.
-If the context does not contain the answer, say you don't have that information and ask a brief follow-up question.
-Do not fabricate details. Cite evidence by referencing item labels like [Memory 2] or [Message 3].
-${historyBlock}
-User question:
-${query}
-
-Context:
-${contextBlock}
-
-Answer:`;
+    const prompt = getPrompt('ragChat', {
+        HISTORY_BLOCK: historyBlock,
+        QUERY: query,
+        CONTEXT_BLOCK: contextBlock,
+    });
 
       try {
           const { llm } = await import('./llm');
@@ -1099,6 +855,28 @@ Answer:`;
   ipcMain.handle('settings:save', (_, key: string, value: any) => {
       saveSetting(key, value);
       console.log(`[IPC] Setting saved: ${key} =`, value);
+      return true;
+  });
+
+  // === PROMPT HANDLERS ===
+
+  ipcMain.handle('prompts:get-all', () => {
+      const defs = getAllPromptDefs();
+      return defs.map(def => ({
+          ...def,
+          currentTemplate: getPromptTemplate(def.key) !== def.defaultTemplate ? getPromptTemplate(def.key) : null,
+      }));
+  });
+
+  ipcMain.handle('prompts:save', (_, key: string, value: string) => {
+      saveSetting(`prompt:${key}`, value);
+      console.log(`[IPC] Prompt saved: ${key}`);
+      return true;
+  });
+
+  ipcMain.handle('prompts:reset', (_, key: string) => {
+      resetPrompt(key);
+      console.log(`[IPC] Prompt reset: ${key}`);
       return true;
   });
 

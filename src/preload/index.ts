@@ -53,6 +53,18 @@ try {
     getSettings: () => ipcRenderer.invoke('settings:get'),
     saveSetting: (key: string, value: any) => ipcRenderer.invoke('settings:save', key, value),
     reprocessAllSessions: (clean?: boolean) => ipcRenderer.invoke('db:reprocess-all-sessions', clean ?? false),
+
+    // Master Memory Progress
+    onMasterMemoryProgress: (callback: (data: { current: number; total: number }) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('master-memory:progress', subscription)
+      return () => ipcRenderer.removeListener('master-memory:progress', subscription)
+    },
+
+    // Prompts
+    getPrompts: () => ipcRenderer.invoke('prompts:get-all'),
+    savePrompt: (key: string, value: string) => ipcRenderer.invoke('prompts:save', key, value),
+    resetPrompt: (key: string) => ipcRenderer.invoke('prompts:reset', key),
     onReprocessProgress: (callback: (data: { phase: string; processed: number; total: number }) => void) => {
       const subscription = (_: any, data: any) => callback(data)
       ipcRenderer.on('reprocess:progress', subscription)

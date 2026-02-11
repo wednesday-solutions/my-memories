@@ -303,6 +303,12 @@ export function getDB() {
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_memories_message_id ON memories(message_id)');
 
+  // Migration: Add name column to memories if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE memories ADD COLUMN name TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   return db;
 }
@@ -1144,5 +1150,10 @@ export function getSetting<T>(key: string, defaultValue: T): T {
     } catch {
         return defaultValue;
     }
+}
+
+export function deleteSetting(key: string): void {
+    const db = getDB();
+    db.prepare('DELETE FROM app_settings WHERE key = ?').run(key);
 }
 

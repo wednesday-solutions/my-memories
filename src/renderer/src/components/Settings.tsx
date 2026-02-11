@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReprocessing } from '../hooks/useReprocessing';
 import { ProgressiveBlur } from './ui/progressive-blur';
@@ -84,6 +84,263 @@ function StrictnessPicker({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Prompt editor types & components
+// ---------------------------------------------------------------------------
+
+interface PromptData {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  variables: { name: string; description: string }[];
+  defaultTemplate: string;
+  currentTemplate: string | null;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  'master-memory': 'Master Memory',
+  'memory-filter': 'Memory Filter',
+  entity: 'Entity Extraction',
+  session: 'Session Processing',
+  chat: 'Chat',
+};
+
+const CATEGORY_ORDER = ['master-memory', 'memory-filter', 'entity', 'session', 'chat'];
+
+function PromptCard({ prompt, onSave, onReset }: {
+  prompt: PromptData;
+  onSave: (key: string, value: string) => void;
+  onReset: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(prompt.currentTemplate ?? prompt.defaultTemplate);
+  const [saving, setSaving] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isCustomized = prompt.currentTemplate !== null;
+
+  // Auto-resize textarea
+  const resize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      // Small delay so the DOM has rendered the textarea
+      requestAnimationFrame(resize);
+    }
+  }, [open, resize]);
+
+  const handleChange = (text: string) => {
+    setValue(text);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setSaving(true);
+    timerRef.current = setTimeout(() => {
+      onSave(prompt.key, text);
+      setSaving(false);
+    }, 1000);
+    requestAnimationFrame(resize);
+  };
+
+  const handleReset = () => {
+    setValue(prompt.defaultTemplate);
+    onReset(prompt.key);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setSaving(false);
+    requestAnimationFrame(resize);
+  };
+
+  return (
+    <div className="border border-neutral-800 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-neutral-800/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-white font-medium">{prompt.name}</span>
+          {isCustomized && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              customized
+            </span>
+          )}
+          {saving && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              saving...
+            </span>
+          )}
+        </div>
+        <svg
+          className={`w-4 h-4 text-neutral-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 space-y-3">
+              <p className="text-xs text-neutral-500">{prompt.description}</p>
+
+              {/* Variable chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {prompt.variables.map((v) => (
+                  <span
+                    key={v.name}
+                    title={v.description}
+                    className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-neutral-800 border border-neutral-700 text-neutral-400 cursor-help"
+                  >
+                    {`{{${v.name}}}`}
+                  </span>
+                ))}
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                ref={textareaRef}
+                value={value}
+                onChange={(e) => handleChange(e.target.value)}
+                spellCheck={false}
+                className="w-full min-h-[120px] p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs font-mono leading-relaxed resize-none focus:outline-none focus:border-neutral-600 transition-colors"
+              />
+
+              {/* Reset button */}
+              {(isCustomized || value !== prompt.defaultTemplate) && (
+                <button
+                  onClick={handleReset}
+                  className="text-xs text-neutral-500 hover:text-white transition-colors"
+                >
+                  Reset to default
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function PromptCategory({ category, prompts, onSave, onReset }: {
+  category: string;
+  prompts: PromptData[];
+  onSave: (key: string, value: string) => void;
+  onReset: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const customizedCount = prompts.filter((p) => p.currentTemplate !== null).length;
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-2 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-neutral-300 font-medium">{CATEGORY_LABELS[category] ?? category}</span>
+          <span className="text-[11px] text-neutral-600">{prompts.length} prompt{prompts.length !== 1 ? 's' : ''}</span>
+          {customizedCount > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              {customizedCount} customized
+            </span>
+          )}
+        </div>
+        <svg
+          className={`w-4 h-4 text-neutral-600 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 pb-2">
+              {prompts.map((p) => (
+                <PromptCard key={p.key} prompt={p} onSave={onSave} onReset={onReset} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function PromptSection() {
+  const [prompts, setPrompts] = useState<PromptData[]>([]);
+
+  useEffect(() => {
+    window.api.getPrompts().then(setPrompts);
+  }, []);
+
+  const handleSave = useCallback((key: string, value: string) => {
+    window.api.savePrompt(key, value);
+    setPrompts((prev) => prev.map((p) => (p.key === key ? { ...p, currentTemplate: value } : p)));
+  }, []);
+
+  const handleReset = useCallback((key: string) => {
+    window.api.resetPrompt(key);
+    setPrompts((prev) => prev.map((p) => (p.key === key ? { ...p, currentTemplate: null } : p)));
+  }, []);
+
+  // Group by category
+  const grouped = CATEGORY_ORDER.map((cat) => ({
+    category: cat,
+    items: prompts.filter((p) => p.category === cat),
+  })).filter((g) => g.items.length > 0);
+
+  if (prompts.length === 0) return null;
+
+  return (
+    <motion.div
+      className="rounded-2xl bg-neutral-900/60 backdrop-blur-sm border border-neutral-800 p-6"
+      initial={{ opacity: 0, filter: 'blur(10px)' }}
+      animate={{ opacity: 1, filter: 'blur(0px)' }}
+      transition={{ duration: 0.6, delay: 0.5 }}
+    >
+      <h3 className="text-white font-medium text-base mb-1">Prompts</h3>
+      <p className="text-neutral-500 text-sm mb-4">
+        View and edit the AI prompts used for memory extraction, entity detection, and chat. Use {'{{VARIABLE}}'} syntax for dynamic values.
+      </p>
+
+      <div className="space-y-1">
+        {grouped.map((g) => (
+          <PromptCategory
+            key={g.category}
+            category={g.category}
+            prompts={g.items}
+            onSave={handleSave}
+            onReset={handleReset}
+          />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 export function Settings() {
   const [memoryStrictness, setMemoryStrictness] = useState<Strictness>('balanced');
   const [entityStrictness, setEntityStrictness] = useState<Strictness>('balanced');
@@ -115,7 +372,7 @@ export function Settings() {
     <div className="relative h-full">
       <div className="absolute inset-0 overflow-y-auto pb-16">
         <motion.div
-          className="flex flex-col gap-6 max-w-2xl px-1"
+          className="flex flex-col gap-6 px-1"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -262,6 +519,9 @@ export function Settings() {
               </motion.div>
             )}
           </motion.div>
+
+          {/* Prompts Section */}
+          <PromptSection />
         </motion.div>
       </div>
 

@@ -2,13 +2,14 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import { app } from "electron";
 import * as fs from "fs";
+import * as http from "http";
 import os from "os";
 
 // Get the models directory in user's app support folder
 function getModelsDir(): string {
     const platform = process.platform;
     let appDataDir: string;
-    
+
     if (platform === 'darwin') {
         appDataDir = path.join(os.homedir(), 'Library', 'Application Support', 'My Memories');
     } else if (platform === 'win32') {
@@ -16,7 +17,7 @@ function getModelsDir(): string {
     } else {
         appDataDir = path.join(os.homedir(), '.my-memories');
     }
-    
+
     return path.join(appDataDir, 'models');
 }
 
@@ -76,14 +77,23 @@ export class LLMService {
     console.log(`[LLMService] Starting llama-server from ${serverPath}`);
     console.log(`[LLMService] Model: ${this.modelPath}`);
 
+    const binDir = path.dirname(serverPath);
+
     this.server = spawn(serverPath, [
       "-m", this.modelPath,
       "--mmproj", this.mmProjPath,
       "--port", String(this.port),
       "--host", "127.0.0.1",
       "--image-min-tokens", "2048",
-      "-c", "32000"
-    ]);
+      "-c", "32768",
+      "-ngl", "99",
+      "--flash-attn", "on"
+    ], {
+      env: {
+        ...process.env,
+        DYLD_LIBRARY_PATH: binDir,
+      },
+    });
 
     this.server.stderr?.on("data", (data) => {
       console.log(`[llama-server] ${data}`);
@@ -117,7 +127,53 @@ export class LLMService {
     throw new Error("Server failed to start");
   }
 
-  async chat(message: string, images: string[] = [], timeoutMs: number = 300000): Promise<string> {
+  // Use Node http module instead of fetch to avoid undici's headersTimeout (300s)
+  // which kills long-running LLM requests before they can respond
+  private httpPost(body: string, timeoutMs: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let timedOut = false;
+
+      const timer = setTimeout(() => {
+        timedOut = true;
+        req.destroy();
+        reject(new Error("LLM request timed out - try a shorter prompt"));
+      }, timeoutMs);
+
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port: this.port,
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          clearTimeout(timer);
+          if (timedOut) return;
+          if (res.statusCode !== 200) {
+            reject(new Error(`LLM Server Error: ${res.statusCode} ${data}`));
+            return;
+          }
+          resolve(data);
+        });
+      });
+
+      req.on('error', (e) => {
+        clearTimeout(timer);
+        if (timedOut) return;
+        reject(e);
+      });
+
+      req.write(body);
+      req.end();
+    });
+  }
+
+  async chat(message: string, images: string[] = [], timeoutMs: number = 300000, maxTokens: number = 2048): Promise<string> {
     if (!this.initialized) {
         await this.init();
         if (!this.initialized) {
@@ -150,39 +206,21 @@ export class LLMService {
             }
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-        console.log(`[LLMService] Starting LLM request (timeout: ${timeoutMs/1000}s)...`);
-
-        const response = await fetch(`http://127.0.0.1:${this.port}/v1/chat/completions`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                messages: messages,
-                max_tokens: 8192,
-                temperature: 0.7
-            }),
-            signal: controller.signal
+        const body = JSON.stringify({
+            messages: messages,
+            max_tokens: maxTokens,
+            temperature: 0.7
         });
 
-        clearTimeout(timeoutId);
+        console.log(`[LLMService] Starting LLM request (timeout: ${timeoutMs/1000}s, body: ${body.length} chars)...`);
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`LLM Server Error: ${response.status} ${errText}`);
-        }
-
-        const data: any = await response.json();
+        const raw = await this.httpPost(body, timeoutMs);
+        const data = JSON.parse(raw);
         console.log('[LLMService] LLM request completed');
         return data.choices?.[0]?.message?.content ?? "";
 
     } catch (e: any) {
-        if (e.name === 'AbortError') {
-            console.error("[LLMService] Request timed out");
-            throw new Error("LLM request timed out - try a shorter prompt");
-        }
-        console.error("[LLMService] Chat error:", e);
+        console.error("[LLMService] Chat error:", e.message || e);
         throw e;
     }
   }

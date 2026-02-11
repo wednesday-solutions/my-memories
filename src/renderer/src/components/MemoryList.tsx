@@ -11,6 +11,7 @@ import { cn } from '@renderer/lib/utils';
 
 interface Memory {
     id: number;
+    name: string | null;
     content: string;
     source_app: string;
     created_at: string;
@@ -110,7 +111,7 @@ function MemoryListItem({ memory, index, formattedTime, onDelete, isHighlighted 
                                     <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
                                         {memory.source_app}
                                     </span>
-                                    <ItemTitle>Memory #{memory.id}</ItemTitle>
+                                    <ItemTitle>{memory.name || `Memory #${memory.id}`}</ItemTitle>
                                 </div>
                                 <ItemDescription className="text-neutral-400 line-clamp-2">
                                     {preview}
@@ -136,7 +137,7 @@ function MemoryListItem({ memory, index, formattedTime, onDelete, isHighlighted 
                     </ModalTrigger>
                     <ModalBody className="bg-neutral-950 border-neutral-800 max-h-[80vh]">
                         <ModalContent className="p-6 text-neutral-200 overflow-y-auto">
-                            <div className="text-base font-semibold text-white">Memory</div>
+                            <div className="text-base font-semibold text-white">{memory.name || 'Memory'}</div>
                             <div className="mt-1 text-xs text-neutral-500">
                                 {memory.source_app} • {formattedTime}
                             </div>

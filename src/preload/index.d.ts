@@ -109,6 +109,11 @@ declare global {
     saveSetting: (key: string, value: any) => Promise<void>
     reprocessAllSessions: (clean?: boolean) => Promise<{ processed: number; total: number }>
 
+    // Prompts
+    getPrompts: () => Promise<{ key: string; name: string; description: string; category: string; variables: { name: string; description: string }[]; defaultTemplate: string; currentTemplate: string | null }[]>
+    savePrompt: (key: string, value: string) => Promise<void>
+    resetPrompt: (key: string) => Promise<void>
+
     // Chat Sessions
     getChatSessions: (appName?: string) => Promise<ChatSession[]>
     summarizeSession: (sessionId: string) => Promise<string | null>
@@ -123,6 +128,7 @@ declare global {
     onNewEntity: (callback: (data: NotificationNewEntity) => void) => () => void
     onSummaryGenerated: (callback: (data: NotificationSummaryGenerated) => void) => () => void
     onReprocessProgress: (callback: (data: ReprocessProgress) => void) => () => void
+    onMasterMemoryProgress: (callback: (data: { current: number; total: number }) => void) => () => void
 
     // Permission APIs
     getPermissionStatus: () => Promise<PermissionStatus>

@@ -18,6 +18,7 @@ export function MasterMemoryModal() {
     const [showRegenerateChoice, setShowRegenerateChoice] = useState(false);
     const [regenerateProgress, setRegenerateProgress] = useState<{ current: number; total: number } | null>(null);
     const [copied, setCopied] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchMasterMemory = async () => {
         setLoading(true);
@@ -35,13 +36,11 @@ export function MasterMemoryModal() {
         setShowRegenerateChoice(false);
         setRegenerating(true);
         setRegenerateProgress(null);
+        setError(null);
 
         try {
             if (mode === 'master-only') {
-                const newContent = await window.api.regenerateMasterMemory();
-                if (newContent) {
-                    setMasterMemory({ content: newContent, updated_at: new Date().toISOString() });
-                }
+                await window.api.regenerateMasterMemory();
             } else {
                 // Re-summarize all chats then regenerate master
                 const sessions = await window.api.getChatSessions();
@@ -53,14 +52,14 @@ export function MasterMemoryModal() {
                     setRegenerateProgress({ current: i + 1, total });
                 }
 
-                const newContent = await window.api.regenerateMasterMemory();
-                if (newContent) {
-                    setMasterMemory({ content: newContent, updated_at: new Date().toISOString() });
-                }
+                await window.api.regenerateMasterMemory();
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Failed to regenerate master memory", e);
+            setError(e?.message || 'Regeneration failed — check that the AI model is running.');
         } finally {
+            // Always refetch from database to show the latest state
+            await fetchMasterMemory();
             setRegenerating(false);
             setRegenerateProgress(null);
         }
@@ -76,6 +75,14 @@ export function MasterMemoryModal() {
 
     useEffect(() => {
         fetchMasterMemory();
+    }, []);
+
+    // Listen for progress events from main process during master-only regeneration
+    useEffect(() => {
+        const unsub = window.api.onMasterMemoryProgress?.((data) => {
+            setRegenerateProgress(data);
+        });
+        return () => unsub?.();
     }, []);
 
     const formatTime = (dateStr: string | null) => {
@@ -196,6 +203,14 @@ export function MasterMemoryModal() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Error Banner */}
+            {error && (
+                <div className="mt-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center justify-between">
+                    <span>{error}</span>
+                    <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-300">x</button>
+                </div>
+            )}
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto mt-4 pr-2 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
