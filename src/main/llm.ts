@@ -1,9 +1,10 @@
 import { spawn, execSync, ChildProcess } from "child_process";
 import path from "path";
-import { app } from "electron";
+import { app, BrowserWindow } from "electron";
 import * as fs from "fs";
 import * as http from "http";
 import os from "os";
+import { getSetting } from "./database";
 
 // Get the models directory in user's app support folder
 function getModelsDir(): string {
@@ -27,6 +28,7 @@ export class LLMService {
   private modelPath: string;
   private mmProjPath: string;
   private initialized = false;
+  private activityCounter = 0;
 
   constructor() {
     const modelsDir = getModelsDir();
@@ -184,13 +186,100 @@ export class LLMService {
     });
   }
 
-  async chat(message: string, images: string[] = [], timeoutMs: number = 300000, maxTokens: number = 2048): Promise<string> {
+  private broadcastActivity(data: any) {
+    try {
+      BrowserWindow.getAllWindows().forEach(win => {
+        win.webContents.send('llm:activity', data);
+      });
+    } catch {}
+  }
+
+  private httpPostStreaming(
+    body: string,
+    timeoutMs: number,
+    onToken: (token: string) => void
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let timedOut = false;
+      let fullContent = '';
+
+      const timer = setTimeout(() => {
+        timedOut = true;
+        req.destroy();
+        reject(new Error("LLM request timed out - try a shorter prompt"));
+      }, timeoutMs);
+
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port: this.port,
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+      }, (res) => {
+        if (res.statusCode !== 200) {
+          let errData = '';
+          res.on('data', (chunk) => { errData += chunk; });
+          res.on('end', () => {
+            clearTimeout(timer);
+            if (!timedOut) reject(new Error(`LLM Server Error: ${res.statusCode} ${errData}`));
+          });
+          return;
+        }
+
+        let buffer = '';
+        res.on('data', (chunk: Buffer) => {
+          buffer += chunk.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            const payload = trimmed.slice(6);
+            if (payload === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(payload);
+              const token = parsed.choices?.[0]?.delta?.content;
+              if (token) {
+                fullContent += token;
+                onToken(token);
+              }
+            } catch {}
+          }
+        });
+
+        res.on('end', () => {
+          clearTimeout(timer);
+          if (timedOut) return;
+          resolve(fullContent);
+        });
+      });
+
+      req.on('error', (e) => {
+        clearTimeout(timer);
+        if (timedOut) return;
+        reject(e);
+      });
+
+      req.write(body);
+      req.end();
+    });
+  }
+
+  async chat(message: string, images: string[] = [], timeoutMs: number = 300000, maxTokens: number = 2048, promptKey?: string): Promise<string> {
     if (!this.initialized) {
         await this.init();
         if (!this.initialized) {
              throw new Error("LLM Service not ready");
         }
     }
+
+    const devMode = getSetting<boolean>('devMode', false);
+    const activityId = ++this.activityCounter;
+    const startTime = Date.now();
 
     try {
         const messages: any[] = [{
@@ -217,21 +306,60 @@ export class LLMService {
             }
         }
 
+        if (devMode) {
+            this.broadcastActivity({
+                type: 'start',
+                id: activityId,
+                promptKey: promptKey || 'unknown',
+                prompt: message,
+                timestamp: startTime,
+            });
+        }
+
         const body = JSON.stringify({
             messages: messages,
             max_tokens: maxTokens,
-            temperature: 0.7
+            temperature: 0.7,
+            ...(devMode ? { stream: true } : {}),
         });
 
         console.log(`[LLMService] Starting LLM request (timeout: ${timeoutMs/1000}s, body: ${body.length} chars)...`);
 
-        const raw = await this.httpPost(body, timeoutMs);
-        const data = JSON.parse(raw);
+        let result: string;
+
+        if (devMode) {
+            result = await this.httpPostStreaming(body, timeoutMs, (token) => {
+                this.broadcastActivity({ type: 'token', id: activityId, token });
+            });
+        } else {
+            const raw = await this.httpPost(body, timeoutMs);
+            const data = JSON.parse(raw);
+            result = data.choices?.[0]?.message?.content ?? "";
+        }
+
         console.log('[LLMService] LLM request completed');
-        return data.choices?.[0]?.message?.content ?? "";
+
+        if (devMode) {
+            this.broadcastActivity({
+                type: 'complete',
+                id: activityId,
+                response: result,
+                duration: Date.now() - startTime,
+            });
+        }
+
+        return result;
 
     } catch (e: any) {
         console.error("[LLMService] Chat error:", e.message || e);
+        if (devMode) {
+            this.broadcastActivity({
+                type: 'error',
+                id: activityId,
+                error: e.message || String(e),
+                duration: Date.now() - startTime,
+            });
+        }
         throw e;
     }
   }

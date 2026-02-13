@@ -344,6 +344,7 @@ function PromptSection() {
 export function Settings() {
   const [memoryStrictness, setMemoryStrictness] = useState<Strictness>('balanced');
   const [entityStrictness, setEntityStrictness] = useState<Strictness>('balanced');
+  const [devMode, setDevMode] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const { reprocessing, progress, result, startReprocess, clearResult } = useReprocessing();
 
@@ -352,6 +353,7 @@ export function Settings() {
     window.api.getSettings().then((settings: any) => {
       if (settings.memoryStrictness) setMemoryStrictness(settings.memoryStrictness);
       if (settings.entityStrictness) setEntityStrictness(settings.entityStrictness);
+      if (settings.devMode !== undefined) setDevMode(!!settings.devMode);
       setLoaded(true);
     });
   }, []);
@@ -518,6 +520,42 @@ export function Settings() {
                 </button>
               </motion.div>
             )}
+          </motion.div>
+
+          {/* Developer Section */}
+          <motion.div
+            className="rounded-2xl bg-neutral-900/60 backdrop-blur-sm border border-neutral-800 p-6"
+            initial={{ opacity: 0, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, filter: 'blur(0px)' }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+          >
+            <h3 className="text-white font-medium text-base mb-1">Developer</h3>
+            <p className="text-neutral-500 text-sm mb-4">
+              Tools for debugging and demo purposes.
+            </p>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-neutral-300">Dev Mode</p>
+                <p className="text-xs text-neutral-600 mt-0.5">
+                  Show a live panel of LLM calls with streaming tokens and timing.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const next = !devMode;
+                  setDevMode(next);
+                  window.api.saveSetting('devMode', next);
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors ${devMode ? 'bg-green-600' : 'bg-neutral-700'}`}
+              >
+                <motion.div
+                  className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white"
+                  animate={{ x: devMode ? 20 : 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </button>
+            </div>
           </motion.div>
 
           {/* Prompts Section */}

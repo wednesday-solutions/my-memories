@@ -112,6 +112,13 @@ try {
     openAccessibilitySettings: () => ipcRenderer.invoke('permissions:open-accessibility-settings'),
     openScreenRecordingSettings: () => ipcRenderer.invoke('permissions:open-screen-recording-settings'),
     
+    // LLM Activity (Dev Mode)
+    onLlmActivity: (callback: (data: any) => void) => {
+      const subscription = (_: any, data: any) => callback(data)
+      ipcRenderer.on('llm:activity', subscription)
+      return () => ipcRenderer.removeListener('llm:activity', subscription)
+    },
+
     // Model Download APIs
     checkModelStatus: () => ipcRenderer.invoke('model:check-status'),
     downloadModels: () => ipcRenderer.invoke('model:download'),

@@ -19,7 +19,7 @@ async function updateMasterMemoryIncremental(newSummary: string): Promise<string
 
         try {
             const { llm } = await import('./llm');
-            const initialMaster = await llm.chat(prompt, [], 600000, 4096);
+            const initialMaster = await llm.chat(prompt, [], 600000, 4096, 'Master Memory');
             updateMasterMemory(initialMaster);
             console.log('[IPC] Initial master memory created');
             return initialMaster;
@@ -34,7 +34,7 @@ async function updateMasterMemoryIncremental(newSummary: string): Promise<string
 
     try {
         const { llm } = await import('./llm');
-        const updatedMaster = await llm.chat(prompt, [], 600000, 4096);
+        const updatedMaster = await llm.chat(prompt, [], 600000, 4096, 'Master Memory');
         updateMasterMemory(updatedMaster);
         console.log('[IPC] Master memory updated incrementally');
         return updatedMaster;
@@ -72,7 +72,7 @@ async function regenerateMasterMemoryFull(): Promise<string | null> {
         console.log(`[IPC] All summaries fit in one prompt (${allText.length} chars), single-shot`);
         sendProgress(0, 1);
         const prompt = getPrompt('masterMemory.batchFirst', { BATCH_TEXT: allText });
-        const master = await llm.chat(prompt, [], 600000, 4096);
+        const master = await llm.chat(prompt, [], 600000, 4096, 'Master Memory (batch)');
         updateMasterMemory(master);
         sendProgress(1, 1);
         console.log(`[IPC] Master memory regenerated single-shot (${master.length} chars)`);
@@ -106,7 +106,7 @@ async function regenerateMasterMemoryFull(): Promise<string | null> {
         console.log(`[IPC] Phase 1 chunk ${i + 1}/${chunks.length}: ${batchText.length} chars input, prompt ${prompt.length} chars`);
 
         try {
-            const partial = await llm.chat(prompt, [], 600000, 2048);
+            const partial = await llm.chat(prompt, [], 600000, 2048, 'Master Memory (batch)');
             partials.push(partial);
             console.log(`[IPC] Chunk ${i + 1} done: ${partial.length} chars output`);
             sendProgress(i + 1, totalSteps);
@@ -122,7 +122,7 @@ async function regenerateMasterMemoryFull(): Promise<string | null> {
     const mergePrompt = getPrompt('masterMemory.merge', { PARTIAL_SUMMARIES: mergeInput });
     console.log(`[IPC] Merge prompt: ${mergePrompt.length} chars`);
 
-    const finalMaster = await llm.chat(mergePrompt, [], 600000, 4096);
+    const finalMaster = await llm.chat(mergePrompt, [], 600000, 4096, 'Master Memory (batch)');
     updateMasterMemory(finalMaster);
     sendProgress(totalSteps, totalSteps);
     console.log(`[IPC] Master memory regenerated via map-reduce (${finalMaster.length} chars)`);
@@ -252,7 +252,7 @@ export async function evaluateAndStoreMemoryForMessage(params: {
 
     try {
         const { llm } = await import('./llm');
-        const response = await llm.chat(prompt);
+        const response = await llm.chat(prompt, [], 300000, 2048, 'Memory Filter');
         const parsed = safeParseJson<{ store: boolean; name?: string; memory?: string }>(response, { store: false });
         if (!parsed.store) return;
         const memoryText = (parsed.memory || '').trim();
@@ -307,7 +307,7 @@ async function extractEntitiesForSession(sessionId: string): Promise<void> {
 
     try {
         const { llm } = await import('./llm');
-        const response = await llm.chat(prompt);
+        const response = await llm.chat(prompt, [], 300000, 2048, 'Entity Extraction');
         const parsed = safeParseJson<{ entities: { name: string; type?: string; facts?: string[] }[] }>(response, { entities: [] });
 
         if (!parsed.entities || parsed.entities.length === 0) return;
@@ -369,7 +369,7 @@ async function extractEntitiesForSession(sessionId: string): Promise<void> {
             });
 
             try {
-                const updatedSummary = await llm.chat(summaryPrompt);
+                const updatedSummary = await llm.chat(summaryPrompt, [], 300000, 2048, 'Entity Summary');
                 if (updatedSummary && updatedSummary.trim()) {
                     updateEntitySummary(entityId, updatedSummary.trim());
                 }
@@ -396,7 +396,7 @@ export async function summarizeSession(sessionId: string): Promise<string | null
 
     try {
         const { llm } = await import('./llm');
-        const summary = await llm.chat(prompt, [], 120000, 2048);
+        const summary = await llm.chat(prompt, [], 120000, 2048, 'Session Summary');
         upsertChatSummary(sessionId, summary);
 
         // Extract and update entity memory (non-blocking — don't fail the summary if these error)
@@ -508,7 +508,7 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
   ipcMain.handle('llm:extract', async (_, text: string) => {
       try {
         const { llm } = await import('./llm');
-        const response = await llm.chat(`Analyze the following text and extract a summary and key topics. Return JSON only with keys: summary, topic, entities. Text: "${text}"`);
+        const response = await llm.chat(`Analyze the following text and extract a summary and key topics. Return JSON only with keys: summary, topic, entities. Text: "${text}"`, [], 300000, 2048, 'Extract');
         
         // Basic cleanup if the model returns markdown code blocks
         const cleanJson = response.replace(/```json\n?|\n?```/g, '').trim();
@@ -686,7 +686,7 @@ ipcMain.handle('db:search-memories', async (_, query: string) => {
 
       try {
           const { llm } = await import('./llm');
-          const answer = await llm.chat(prompt);
+          const answer = await llm.chat(prompt, [], 300000, 2048, 'Memory Chat');
           return {
               answer,
               context: {

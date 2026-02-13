@@ -8,6 +8,7 @@ import { MemoryChat } from './components/MemoryChat';
 import { Settings } from './components/Settings';
 import { Dashboard } from './components/Dashboard';
 import { Onboarding } from './components/Onboarding';
+import { DevPanel } from './components/DevPanel';
 import { NotificationList } from './components/NotificationList';
 import { PermissionGate } from './components/PermissionGate';
 import { NotificationProvider, useNotifications } from './hooks/useNotifications';
@@ -96,6 +97,7 @@ function AppContent() {
   const [selectedMemoryId, setSelectedMemoryId] = useState<number | null>(null);
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [devMode, setDevMode] = useState(false);
 
   // Navigation history stacks (back and forward)
   const navigationHistory = useRef<NavigationState[]>([]);
@@ -107,6 +109,22 @@ function AppContent() {
     const completed = localStorage.getItem('onboarding_completed') === 'true';
     setHasCompletedOnboarding(completed);
   }, []);
+
+  // Load devMode setting on mount and re-check when navigating away from settings
+  useEffect(() => {
+    window.api?.getSettings?.().then((settings: any) => {
+      setDevMode(!!settings?.devMode);
+    });
+  }, []);
+
+  // Re-check devMode when leaving settings (user may have toggled it)
+  useEffect(() => {
+    if (viewMode !== 'settings') {
+      window.api?.getSettings?.().then((settings: any) => {
+        setDevMode(!!settings?.devMode);
+      });
+    }
+  }, [viewMode]);
 
   // Handle browser URL changes
   useEffect(() => {
@@ -487,6 +505,10 @@ function AppContent() {
               )}
             </AnimatePresence>
           </div>
+          {/* Dev Panel */}
+          <AnimatePresence>
+            {devMode && <DevPanel />}
+          </AnimatePresence>
         </div>
       </div>
     </div>
